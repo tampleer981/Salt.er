@@ -7,6 +7,17 @@
     xmlns:local="using:Salter.App.Views"
     xmlns:vm="using:Salter.Presentation.ViewModels">
 
+  <UserControl.Resources>
+    <!-- One menu shared by every tag pill; its item is labelled for the pill it opens on. -->
+    <MenuFlyout x:Key="TagMenu" Opening="OnTagMenuOpening">
+      <MenuFlyoutItem Click="OnExcludeTagClick">
+        <MenuFlyoutItem.Icon>
+          <FontIcon Glyph="&#xED1A;" />
+        </MenuFlyoutItem.Icon>
+      </MenuFlyoutItem>
+    </MenuFlyout>
+  </UserControl.Resources>
+
   <Grid Background="{ThemeResource SheetBrush}">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
@@ -66,9 +77,15 @@
               <controls:WrapPanel HorizontalSpacing="6" VerticalSpacing="6" />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
+          <!-- Right-click (or press and hold) a pill to leave its tag out of the feed. -->
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="x:String">
-              <Border Padding="10,4" Background="{ThemeResource ChipBrush}" CornerRadius="12">
+              <Border
+                  Padding="10,4"
+                  Background="{ThemeResource ChipBrush}"
+                  ContextFlyout="{StaticResource TagMenu}"
+                  CornerRadius="12"
+                  Tag="{x:Bind}">
                 <TextBlock FontSize="12" Foreground="{ThemeResource TextPrimaryBrush}"><Run Text="#" /><Run Text="{x:Bind}" /></TextBlock>
               </Border>
             </DataTemplate>

@@ -182,6 +182,22 @@
     <value>4K+</value>
     <comment>Resolution filter value: at least 3840 × 2160.</comment>
   </data>
+  <data name="Filter_Exclude" xml:space="preserve">
+    <value>Exclude</value>
+    <comment>Label of the excluded tags filter.</comment>
+  </data>
+  <data name="Filter_ExcludeName" xml:space="preserve">
+    <value>Tag to exclude</value>
+    <comment>Accessible name of the box that adds an excluded tag.</comment>
+  </data>
+  <data name="Filter_ExcludePlaceholder" xml:space="preserve">
+    <value>Exclude a tag…</value>
+    <comment>Placeholder of the box that adds an excluded tag; Enter adds it.</comment>
+  </data>
+  <data name="Filter_RemoveExclusion" xml:space="preserve">
+    <value>Remove {0}</value>
+    <comment>Accessible name and tooltip of the button that removes an excluded tag; {0} is the tag.</comment>
+  </data>
   <data name="Color_red" xml:space="preserve">
     <value>Red</value>
     <comment>Name of a colour swatch in the colour filter.</comment>
@@ -246,6 +262,14 @@
     <value>unknown</value>
     <comment>Uploader name used in the credit line when wallhaven does not report one.</comment>
   </data>
+  <data name="Detail_ExcludeTag" xml:space="preserve">
+    <value>Exclude #{0}</value>
+    <comment>Context menu item on a wallpaper's tag that leaves the tag out of the feed; {0} is the tag.</comment>
+  </data>
+  <data name="Detail_ExcludeTagUnsupported" xml:space="preserve">
+    <value>Only one-word tags can be excluded</value>
+    <comment>Disabled context menu item on a tag with spaces, which cannot be excluded.</comment>
+  </data>
   <data name="Toast_Applied" xml:space="preserve">
     <value>Applied to {0}</value>
     <comment>Toast after setting the wallpaper on one display; {0} is the display's name.</comment>
@@ -261,6 +285,10 @@
   <data name="Toast_SettingsSaveFailed" xml:space="preserve">
     <value>Couldn't save settings</value>
     <comment>Toast when a setting could not be saved.</comment>
+  </data>
+  <data name="Toast_TagExcluded" xml:space="preserve">
+    <value>Excluded #{0}</value>
+    <comment>Toast after a tag is left out of the feed; {0} is the tag.</comment>
   </data>
   <data name="State_Empty" xml:space="preserve">
     <value>Nothing found</value>

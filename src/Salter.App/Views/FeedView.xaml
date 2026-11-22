@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Salter.App.Views"
     xmlns:vm="using:Salter.Presentation.ViewModels"
+    xmlns:controls="using:Salter.App.Controls"
     xmlns:wh="using:Salter.Core.Wallhaven">
 
   <UserControl.Resources>
@@ -17,6 +18,19 @@
           To="0.45"
           Duration="0:0:0.9" />
     </Storyboard>
+
+    <!--
+      Lightweight styling of the search and exclusion boxes: the surrounding border is the field, so the boxes stay
+      clear in every state. Text colours keep the theme defaults, which follow the flyout's theme.
+    -->
+    <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
+    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+    <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
+    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+    <Thickness x:Key="TextControlBorderThemeThickness">0</Thickness>
+    <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
   </UserControl.Resources>
 
   <Grid>
@@ -95,22 +109,7 @@
             KeyDown="OnSearchKeyDown"
             MinHeight="0"
             PlaceholderText="{x:Bind local:Ui.Text('Search_Placeholder')}"
-            Text="{x:Bind Feed.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-          <!--
-            Lightweight styling: the surrounding border is the field, so the box stays clear in every state. Text
-            colours keep the theme defaults, which follow the flyout's theme.
-          -->
-          <TextBox.Resources>
-            <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
-            <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
-            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
-            <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
-            <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
-            <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
-            <Thickness x:Key="TextControlBorderThemeThickness">0</Thickness>
-            <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
-          </TextBox.Resources>
-        </TextBox>
+            Text="{x:Bind Feed.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
         <Border
             Grid.Column="2"
             Padding="5,1"
@@ -126,7 +125,7 @@
       </Grid>
     </Border>
 
-    <!-- Filters panel: ratio, minimum resolution, colour. -->
+    <!-- Filters panel: ratio, minimum resolution, colour, excluded tags. -->
     <Border
         Grid.Row="2"
         Margin="14,0,14,10"
@@ -142,6 +141,7 @@
           <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
           <RowDefinition Height="Auto" />
           <RowDefinition Height="Auto" />
           <RowDefinition Height="Auto" />
@@ -226,6 +226,84 @@
             </DataTemplate>
           </ItemsRepeater.ItemTemplate>
         </ItemsRepeater>
+
+        <!-- Excluded tags: Enter adds the typed tag; each chip's × shows the tag's wallpapers again. -->
+        <TextBlock
+            Grid.Row="3"
+            Margin="0,5,0,0"
+            VerticalAlignment="Top"
+            Style="{StaticResource CaptionTextStyle}"
+            Text="{x:Bind local:Ui.Text('Filter_Exclude')}" />
+        <StackPanel Grid.Row="3" Grid.Column="1">
+          <Border
+              Height="28"
+              Padding="10,0,4,0"
+              Background="{ThemeResource ChipBrush}"
+              BorderBrush="{ThemeResource GlassBorderBrush}"
+              BorderThickness="1"
+              CornerRadius="6">
+            <TextBox
+                x:Name="ExclusionBox"
+                Padding="0,4"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="{x:Bind local:Ui.Text('Filter_ExcludeName')}"
+                Background="Transparent"
+                BorderThickness="0"
+                FontSize="12"
+                Foreground="{ThemeResource TextPrimaryBrush}"
+                IsSpellCheckEnabled="False"
+                KeyDown="OnExclusionKeyDown"
+                MaxLength="40"
+                MinHeight="0"
+                PlaceholderText="{x:Bind local:Ui.Text('Filter_ExcludePlaceholder')}"
+                Text="{x:Bind Feed.ExclusionText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+          </Border>
+          <ItemsControl
+              x:Name="ExclusionChips"
+              Margin="0,6,0,0"
+              IsTabStop="False"
+              ItemsSource="{x:Bind Feed.ExcludedTags}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <controls:WrapPanel HorizontalSpacing="4" VerticalSpacing="4" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="x:String">
+                <Grid
+                    Height="26"
+                    Padding="10,0,3,0"
+                    Background="{ThemeResource ChipBrush}"
+                    BorderBrush="{ThemeResource GlassBorderBrush}"
+                    BorderThickness="1"
+                    ColumnSpacing="2"
+                    CornerRadius="13">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock
+                      VerticalAlignment="Center"
+                      FontSize="12"
+                      FontWeight="Medium"
+                      Foreground="{ThemeResource TextPrimaryBrush}"><Run Text="#" /><Run Text="{x:Bind}" /></TextBlock>
+                  <!-- Named "Remove <tag>" for screen readers when loaded. -->
+                  <Button
+                      Grid.Column="1"
+                      Width="20"
+                      Height="20"
+                      Click="OnRemoveExclusionClick"
+                      CornerRadius="10"
+                      Loaded="OnRemoveExclusionLoaded"
+                      Style="{StaticResource IconButtonStyle}"
+                      Tag="{x:Bind}">
+                    <FontIcon FontSize="8" Glyph="&#xE711;" />
+                  </Button>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
       </Grid>
     </Border>
 

@@ -42,6 +42,8 @@ public sealed partial class FeedView : UserControl
         // The scroll viewer handles the wheel itself; listen to handled events too to scroll the genres sideways.
         GenreScroller.AddHandler(PointerWheelChangedEvent, new PointerEventHandler(OnGenresPointerWheelChanged), true);
         Feed.PropertyChanged += OnFeedPropertyChanged;
+        Feed.ExcludedTags.CollectionChanged += OnExcludedTagsChanged;
+        UpdateExclusionChips();
         Loaded += (_, _) => UpdateShimmer();
         Unloaded += (_, _) => _shimmer.Stop();
     }
@@ -156,6 +158,43 @@ public sealed partial class FeedView : UserControl
         else
         {
             _shimmer.Stop();
+        }
+    }
+
+    private void OnExcludedTagsChanged(object? sender, NotifyCollectionChangedEventArgs e) => UpdateExclusionChips();
+
+    // No empty row under the box while nothing is excluded.
+    private void UpdateExclusionChips() => ExclusionChips.Visibility = VisibleIf(Feed.ExcludedTags.Count > 0);
+
+    private void OnExclusionKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Enter)
+        {
+            e.Handled = true;
+            // The binding updates the text on every change, so the view model already has what was typed.
+            Feed.AddExclusionCommand.Execute(ExclusionBox.Text);
+        }
+    }
+
+    private void OnRemoveExclusionClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: string tag })
+        {
+            Feed.RemoveExclusionCommand.Execute(tag);
+            // The chip, and so the focus, is gone; keep the keyboard in the filters.
+            _ = ExclusionBox.Focus(FocusState.Programmatic);
+        }
+    }
+
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML connects event handlers to the instance.")]
+    private void OnRemoveExclusionLoaded(object sender, RoutedEventArgs e)
+    {
+        // Set here: a compiled binding cannot pass the template's string item itself to a formatting function.
+        if (sender is Button { Tag: string tag } button)
+        {
+            var name = Ui.Format("Filter_RemoveExclusion", tag);
+            AutomationProperties.SetName(button, name);
+            ToolTipService.SetToolTip(button, name);
         }
     }
 

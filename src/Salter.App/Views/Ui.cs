@@ -15,6 +15,12 @@ internal static class Ui
     /// <returns>The string, or the key if the resource is missing.</returns>
     public static string Text(string key) => Strings.Get(key);
 
+    /// <summary>Gets a user-visible composite format string and fills in its argument.</summary>
+    /// <param name="key">The resource key.</param>
+    /// <param name="argument">The value for <c>{0}</c>.</param>
+    /// <returns>The formatted string.</returns>
+    public static string Format(string key, object argument) => Strings.Format(key, argument);
+
     /// <summary>Shows an element only while a condition is false.</summary>
     /// <param name="value">The condition.</param>
     /// <returns><see cref="Visibility.Collapsed"/> if <paramref name="value"/> is true; otherwise visible.</returns>
