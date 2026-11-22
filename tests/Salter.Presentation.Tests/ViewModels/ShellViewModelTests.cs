@@ -160,4 +160,34 @@ public sealed class ShellViewModelTests : IDisposable
         Assert.Equal(FeedState.Ready, _shell.Feed.State);
         Assert.Equal("key-1", _secrets.Get(SecretNames.WallhavenApiKey));
     }
+
+    [Fact]
+    public async Task Excluding_a_tag_from_the_details_returns_to_the_reloaded_feed()
+    {
+        var wallpaper = Wallpaper("a");
+        _shell.Feed.OpenCommand.Execute(wallpaper);
+        await _shell.Detail.OpenAsync(wallpaper, TestContext.Current.CancellationToken);
+        _client.Enqueue(new SearchPage([], 1, 1, Seed: null));
+
+        _shell.Detail.ExcludeTagCommand.Execute("Tag");
+
+        Assert.Equal(ShellPage.Feed, _shell.Page);
+        Assert.Equal(["tag"], _shell.Feed.ExcludedTags);
+        Assert.Equal(["tag"], _settings.Settings.ExcludedTags);
+        Assert.Equal("-tag", _client.Queries[^1].Text);
+        Assert.Equal("Toast_TagExcluded|tag", _toast.Message);
+        Assert.Equal(ToastKind.Success, _toast.Kind);
+    }
+
+    [Fact]
+    public void Tags_that_cannot_be_excluded_are_ignored()
+    {
+        _shell.Feed.OpenCommand.Execute(Wallpaper("a"));
+
+        _shell.Detail.ExcludeTagCommand.Execute("digital art");
+
+        Assert.Equal(ShellPage.Detail, _shell.Page);
+        Assert.Empty(_shell.Feed.ExcludedTags);
+        Assert.Null(_toast.Message);
+    }
 }

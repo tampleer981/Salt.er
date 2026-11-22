@@ -53,7 +53,9 @@ public sealed partial class FeedViewModel : ObservableObject
     /// <summary>Creates the feed view model. Nothing is loaded until <see cref="LoadCommand"/> runs.</summary>
     /// <param name="client">Runs the searches.</param>
     /// <param name="requests">Builds the search for the current selection.</param>
-    /// <param name="settings">Provides the purity levels, read whenever a new query starts.</param>
+    /// <param name="settings">
+    /// Provides the purity levels, read whenever a new query starts, and stores the excluded tags.
+    /// </param>
     /// <param name="apiKey">
     /// Tells whether an API key is configured; without one only SFW wallpapers are requested, whatever the stored
     /// purity levels say.
@@ -88,7 +90,9 @@ public sealed partial class FeedViewModel : ObservableObject
         Resolutions = [.. ResolutionOrder.Select(r => new ChoiceItem<ResolutionFilter>(r.Value, localizer.Get(r.Key)))];
         Colors = [.. ColorCatalog.All.Select(c => new ChoiceItem<string>(c.Hex, localizer.Get("Color_" + c.Key)))];
         Filters = new FeedFilters();
+        ExcludedTags = [.. TagExclusions.NormalizeAll(settings.Load().ExcludedTags)];
         SearchText = string.Empty;
+        ExclusionText = string.Empty;
         State = FeedState.Idle;
         _constructed = true;
     }
@@ -120,6 +124,13 @@ public sealed partial class FeedViewModel : ObservableObject
     /// </summary>
     public IReadOnlyList<ChoiceItem<string>> Colors { get; }
 
+    /// <summary>
+    /// The tags whose wallpapers are left out of every query, in the order they were added; at most
+    /// <see cref="TagExclusions.MaxCount"/>. Changed by <see cref="AddExclusionCommand"/> and
+    /// <see cref="RemoveExclusionCommand"/>, which also save them; <see cref="ResetFiltersCommand"/> keeps them.
+    /// </summary>
+    public ObservableCollection<string> ExcludedTags { get; }
+
     /// <summary>The selected genre; <c>all</c> while a search is shown.</summary>
     [ObservableProperty]
     public partial ChoiceItem<Genre> SelectedGenre { get; private set; }
@@ -140,6 +151,10 @@ public sealed partial class FeedViewModel : ObservableObject
     /// <summary>The search box text; applied by <see cref="SubmitSearchCommand"/>.</summary>
     [ObservableProperty]
     public partial string SearchText { get; set; }
+
+    /// <summary>The text of the box that adds an excluded tag; cleared once its tag is excluded.</summary>
+    [ObservableProperty]
+    public partial string ExclusionText { get; set; }
 
     /// <summary>What the feed is currently showing.</summary>
     [ObservableProperty]
@@ -333,6 +348,69 @@ public sealed partial class FeedViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Leaves a tag's wallpapers out of the feed, saves the exclusions and reloads. Invalid tags (see
+    /// <see cref="TagExclusions.Normalize"/>), tags already excluded and tags beyond
+    /// <see cref="TagExclusions.MaxCount"/> are ignored.
+    /// </summary>
+    /// <param name="tag">The tag, as typed or as shown on a wallpaper.</param>
+    [RelayCommand]
+    private void AddExclusion(string? tag)
+    {
+        if (TagExclusions.Normalize(tag) is not { } value)
+        {
+            return;
+        }
+
+        var added = false;
+        if (!ExcludedTags.Contains(value))
+        {
+            if (ExcludedTags.Count >= TagExclusions.MaxCount)
+            {
+                return;
+            }
+
+            ExcludedTags.Add(value);
+            added = true;
+        }
+
+        // The box is done with once its tag is excluded, now or before.
+        if (TagExclusions.Normalize(ExclusionText) == value)
+        {
+            ExclusionText = string.Empty;
+        }
+
+        if (added)
+        {
+            ExclusionsChanged();
+        }
+    }
+
+    /// <summary>Shows a tag's wallpapers again, saves the exclusions and reloads.</summary>
+    /// <param name="tag">An entry of <see cref="ExcludedTags"/>.</param>
+    [RelayCommand]
+    private void RemoveExclusion(string? tag)
+    {
+        if (TagExclusions.Normalize(tag) is { } value && ExcludedTags.Remove(value))
+        {
+            ExclusionsChanged();
+        }
+    }
+
+    private void ExclusionsChanged()
+    {
+        try
+        {
+            _settings.Save(_settings.Load() with { ExcludedTags = [.. ExcludedTags] });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            // Still applied for this session; the next successful save stores them.
+        }
+
+        BeginReload();
+    }
+
     /// <summary>Opens a wallpaper's details.</summary>
     /// <param name="wallpaper">The wallpaper to open.</param>
     [RelayCommand]
@@ -406,6 +484,7 @@ public sealed partial class FeedViewModel : ObservableObject
             _submittedSearch,
             SelectedSorting,
             Filters,
+            [.. ExcludedTags],
             CurrentPurity(),
             startPage);
         _current = generation;
@@ -459,7 +538,8 @@ public sealed partial class FeedViewModel : ObservableObject
             generation.Filters,
             generation.Purity,
             page,
-            generation.Seed);
+            generation.Seed,
+            generation.ExcludedTags);
 
     private void Accept(QueryGeneration generation, SearchPage result, int page)
     {
@@ -494,13 +574,21 @@ public sealed partial class FeedViewModel : ObservableObject
     {
         private readonly CancellationTokenSource _cancellation = new();
 
-        public QueryGeneration(Genre genre, string searchText, Sorting sorting, FeedFilters filters, Purity purity, int startPage)
+        public QueryGeneration(
+            Genre genre,
+            string searchText,
+            Sorting sorting,
+            FeedFilters filters,
+            IReadOnlyList<string> excludedTags,
+            Purity purity,
+            int startPage)
         {
             StartPage = startPage;
             Genre = genre;
             SearchText = searchText;
             Sorting = sorting;
             Filters = filters;
+            ExcludedTags = excludedTags;
             Purity = purity;
             // Captured up front: the token stays usable after the source is disposed, the source's Token property does not.
             Token = _cancellation.Token;
@@ -513,6 +601,8 @@ public sealed partial class FeedViewModel : ObservableObject
         public Sorting Sorting { get; }
 
         public FeedFilters Filters { get; }
+
+        public IReadOnlyList<string> ExcludedTags { get; }
 
         public Purity Purity { get; }
 

@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Salter.Core.Downloads;
+using Salter.Core.Feed;
 using Salter.Core.Settings;
 using Salter.Core.Wallhaven;
 using Salter.Presentation.Abstractions;
@@ -73,6 +74,12 @@ public sealed partial class DetailViewModel : ObservableObject
 
     /// <summary>Raised when the detail screen should close: on <see cref="CloseCommand"/> or after a successful apply.</summary>
     public event EventHandler? Closed;
+
+    /// <summary>
+    /// Raised by <see cref="ExcludeTagCommand"/> when the user asks to leave a tag's wallpapers out of the feed; the
+    /// argument is the normalized tag.
+    /// </summary>
+    public event EventHandler<string>? TagExcluded;
 
     /// <summary>The wallpaper shown, or <see langword="null"/> before the first <see cref="OpenAsync"/>.</summary>
     [ObservableProperty]
@@ -188,6 +195,21 @@ public sealed partial class DetailViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(wallpaper);
         return ApplyCoreAsync(wallpaper, monitor: null);
+    }
+
+    /// <summary>
+    /// Asks to leave a tag's wallpapers out of the feed and confirms it with a toast. Tags that cannot be excluded
+    /// (see <see cref="TagExclusions.Normalize"/>) are ignored.
+    /// </summary>
+    /// <param name="tag">One of <see cref="Tags"/>.</param>
+    [RelayCommand]
+    private void ExcludeTag(string? tag)
+    {
+        if (TagExclusions.Normalize(tag) is { } value)
+        {
+            _toasts.Show(_localizer.Format("Toast_TagExcluded", value), ToastKind.Success);
+            TagExcluded?.Invoke(this, value);
+        }
     }
 
     /// <summary>

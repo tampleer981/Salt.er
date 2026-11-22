@@ -29,6 +29,7 @@ public sealed partial class ShellViewModel : ObservableObject
         feed.WallpaperOpened += OnWallpaperOpened;
         feed.QuickApplyRequested += OnQuickApplyRequested;
         detail.Closed += OnDetailClosed;
+        detail.TagExcluded += OnTagExcluded;
         settings.ContentSettingsChanged += OnContentSettingsChanged;
     }
 
@@ -98,6 +99,13 @@ public sealed partial class ShellViewModel : ObservableObject
         {
             Page = ShellPage.Feed;
         }
+    }
+
+    private void OnTagExcluded(object? sender, string tag)
+    {
+        // The feed reloads without the tag; show it, as the wallpaper open may be one of those left out.
+        Feed.AddExclusionCommand.Execute(tag);
+        Back();
     }
 
     private void OnContentSettingsChanged(object? sender, EventArgs e) => Feed.RefreshCommand.Execute(null);

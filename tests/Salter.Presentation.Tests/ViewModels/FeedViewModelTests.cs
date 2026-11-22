@@ -696,6 +696,162 @@ public class FeedViewModelTests
         Assert.Equal(Purity.Sfw, Assert.Single(_client.Queries).Purity);
     }
 
+    [Fact]
+    public void Excluded_tags_start_from_the_settings()
+    {
+        _settings.Settings = AppSettings.Default with { ExcludedTags = ["people", "car"] };
+
+        var vm = CreateViewModel();
+
+        Assert.Equal(["people", "car"], vm.ExcludedTags);
+        Assert.Equal(string.Empty, vm.ExclusionText);
+    }
+
+    [Fact]
+    public async Task Excluded_tags_are_appended_to_every_query()
+    {
+        _settings.Settings = AppSettings.Default with { ExcludedTags = ["people"] };
+        var vm = CreateViewModel();
+        _client.Enqueue(Page(1, 2, "a"));
+        _client.Enqueue(Page(2, 2, "b"));
+
+        await vm.LoadCommand.ExecuteAsync(null);
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+
+        Assert.Equal(["-people", "-people"], _client.Queries.Select(q => q.Text));
+    }
+
+    [Fact]
+    public async Task AddExclusion_saves_reloads_and_clears_the_box()
+    {
+        var vm = CreateViewModel();
+        _client.Enqueue(Page(1, 1, "a"));
+        await vm.LoadCommand.ExecuteAsync(null);
+        _client.Enqueue(Page(1, 1, "b"));
+        vm.ExclusionText = " People ";
+
+        vm.AddExclusionCommand.Execute(vm.ExclusionText);
+
+        Assert.Equal(["people"], vm.ExcludedTags);
+        Assert.Equal(["people"], _settings.Settings.ExcludedTags);
+        Assert.Equal(string.Empty, vm.ExclusionText);
+        Assert.Equal(2, _client.Queries.Count);
+        Assert.Equal("-people", _client.Queries[1].Text);
+        Assert.Equal(["b"], vm.Items.Select(i => i.Id));
+    }
+
+    [Fact]
+    public void AddExclusion_keeps_the_other_settings()
+    {
+        _settings.Settings = AppSettings.Default with { Theme = ThemePreference.Dark, Purity = Purity.Sfw | Purity.Sketchy };
+        var vm = CreateViewModel();
+        _client.Enqueue(Page(1, 1, "a"));
+
+        vm.AddExclusionCommand.Execute("car");
+
+        Assert.Equal(
+            AppSettings.Default with { Theme = ThemePreference.Dark, Purity = Purity.Sfw | Purity.Sketchy, ExcludedTags = ["car"] },
+            _settings.Settings);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("digital art")]
+    [InlineData("a&b")]
+    public void AddExclusion_ignores_invalid_tags_and_keeps_the_box(string? tag)
+    {
+        var vm = CreateViewModel();
+        vm.ExclusionText = tag ?? "x y";
+
+        vm.AddExclusionCommand.Execute(tag);
+
+        Assert.Empty(vm.ExcludedTags);
+        Assert.Equal(tag ?? "x y", vm.ExclusionText);
+        Assert.Equal(0, _settings.SaveAttempts);
+        Assert.Empty(_client.Queries);
+    }
+
+    [Fact]
+    public void AddExclusion_of_an_excluded_tag_only_clears_the_box()
+    {
+        _settings.Settings = AppSettings.Default with { ExcludedTags = ["people"] };
+        var vm = CreateViewModel();
+        vm.ExclusionText = "#people";
+
+        vm.AddExclusionCommand.Execute(vm.ExclusionText);
+
+        Assert.Equal(["people"], vm.ExcludedTags);
+        Assert.Equal(string.Empty, vm.ExclusionText);
+        Assert.Equal(0, _settings.SaveAttempts);
+        Assert.Empty(_client.Queries);
+    }
+
+    [Fact]
+    public void AddExclusion_stops_at_the_maximum()
+    {
+        var full = Enumerable.Range(0, TagExclusions.MaxCount).Select(i => "tag" + i).ToArray();
+        _settings.Settings = AppSettings.Default with { ExcludedTags = full };
+        var vm = CreateViewModel();
+        vm.ExclusionText = "more";
+
+        vm.AddExclusionCommand.Execute("more");
+
+        Assert.Equal(full, vm.ExcludedTags);
+        Assert.Equal("more", vm.ExclusionText);
+        Assert.Empty(_client.Queries);
+    }
+
+    [Fact]
+    public void RemoveExclusion_saves_and_reloads()
+    {
+        _settings.Settings = AppSettings.Default with { ExcludedTags = ["people", "car"] };
+        var vm = CreateViewModel();
+        _client.Enqueue(Page(1, 1, "a"));
+
+        vm.RemoveExclusionCommand.Execute("people");
+
+        Assert.Equal(["car"], vm.ExcludedTags);
+        Assert.Equal(["car"], _settings.Settings.ExcludedTags);
+        Assert.Equal("-car", Assert.Single(_client.Queries).Text);
+
+        vm.RemoveExclusionCommand.Execute("people");
+        vm.RemoveExclusionCommand.Execute(null);
+
+        Assert.Single(_client.Queries);
+    }
+
+    [Fact]
+    public void Exclusions_apply_for_the_session_when_saving_fails()
+    {
+        _settings.SaveFailure = new IOException("disk full");
+        var vm = CreateViewModel();
+        _client.Enqueue(Page(1, 1, "a"));
+
+        vm.AddExclusionCommand.Execute("people");
+
+        Assert.Equal(["people"], vm.ExcludedTags);
+        Assert.Empty(_settings.Settings.ExcludedTags);
+        Assert.Equal("-people", Assert.Single(_client.Queries).Text);
+    }
+
+    [Fact]
+    public async Task ResetFilters_keeps_excluded_tags()
+    {
+        _settings.Settings = AppSettings.Default with { ExcludedTags = ["people"] };
+        var vm = CreateViewModel();
+        _client.Enqueue(Page(1, 1, "a"));
+        await vm.LoadCommand.ExecuteAsync(null);
+        _client.Enqueue(Page(1, 1, "b"));
+        vm.Filters = new FeedFilters(RatioFilter.Wide16x9);
+        _client.Enqueue(Page(1, 1, "c"));
+
+        vm.ResetFiltersCommand.Execute(null);
+
+        Assert.Equal(["people"], vm.ExcludedTags);
+        Assert.Equal("-people", _client.Queries[^1].Text);
+    }
+
     private FeedViewModel CreateViewModel() =>
         new(_client, new FeedRequestFactory(() => (1920, 1080)), _settings, _apiKey, _localizer)
         {
