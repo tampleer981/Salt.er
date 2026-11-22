@@ -1,0 +1,130 @@
+name: Release
+
+# A tag vX.Y.Z publishes a GitHub release. A manual run only builds the release files (a dry run): it never
+# publishes, whatever version is given.
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to package (semantic version, no leading v). Manual runs never publish.
+        required: true
+        default: 0.0.1-test
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  pack:
+    name: Pack (${{ matrix.arch }})
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+      matrix:
+        arch: [x64, arm64]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Build and package
+        shell: pwsh
+        env:
+          # A tag push packages the tag's version; a manual run packages the input.
+          VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: ./build/pack.ps1 -Version ($env:VERSION -replace '^v', '') -Arch $env:ARCH
+
+      - name: Upload release files
+        uses: actions/upload-artifact@v4
+        with:
+          name: salter-win-${{ matrix.arch }}
+          path: artifacts/releases/${{ matrix.arch }}
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish release
+    needs: pack
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: salter-win-*
+          path: dist
+
+      - name: Collect release files
+        run: |
+          set -euo pipefail
+          mkdir release
+          for dir in dist/*/; do
+            # Each architecture's files must match the checksums written when they were built.
+            (cd "$dir" && sha256sum --check --strict SHA256SUMS.txt)
+            for file in "$dir"*; do
+              name=$(basename "$file")
+              [ "$name" = SHA256SUMS.txt ] && continue
+              if [ -e "release/$name" ]; then
+                echo "::error::Two architectures produced $name."
+                exit 1
+              fi
+              cp "$file" release/
+            done
+          done
+          # One checksum file for the whole release.
+          (cd release && sha256sum -- * > ../SHA256SUMS.txt)
+          mv SHA256SUMS.txt release/
+          ls -l release
+
+      - name: Extract release notes
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          # The body of the "## [x.y.z]" section, up to the next section or the link definitions.
+          awk -v heading="## [$version]" '
+            index($0, "## [") == 1 { if (found) exit; if (index($0, heading) == 1) { found = 1; next } }
+            found && /^\[[^]]*\]: / { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "::error::CHANGELOG.md has no notes under a '## [$version]' heading."
+            exit 1
+          fi
+          cat notes.md
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          flags=()
+          # A pre-release version (1.2.0-rc.1) is a GitHub pre-release; installed apps only update to stable releases.
+          if [[ "$version" == *-* ]]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$TAG" release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Salt.er $version" \
+            --notes-file notes.md \
+            --verify-tag \
+            "${flags[@]}"

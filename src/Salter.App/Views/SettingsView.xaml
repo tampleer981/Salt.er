@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Salter.App.Views.SettingsView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Salter.App.Views">
+
+  <UserControl.Resources>
+    <Style x:Key="SectionTextStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextStyle}">
+      <Setter Property="Margin" Value="4,18,0,8" />
+    </Style>
+    <Style x:Key="CardStyle" TargetType="Border">
+      <Setter Property="Padding" Value="12" />
+      <Setter Property="Background" Value="{ThemeResource FieldBrush}" />
+      <Setter Property="BorderBrush" Value="{ThemeResource GlassBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+    </Style>
+    <Style x:Key="LabelTextStyle" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <!-- Header: back and title. -->
+    <StackPanel Grid.Row="0" Padding="14,14,14,4" Orientation="Horizontal" Spacing="6">
+      <Button
+          x:Name="BackButton"
+          AutomationProperties.Name="{x:Bind local:Ui.Text('Detail_Back')}"
+          Command="{x:Bind Shell.BackCommand}"
+          Style="{StaticResource IconButtonStyle}"
+          ToolTipService.ToolTip="{x:Bind local:Ui.Text('Detail_Back')}">
+        <FontIcon FontSize="16" Glyph="&#xE72B;" />
+      </Button>
+      <TextBlock
+          VerticalAlignment="Center"
+          AutomationProperties.HeadingLevel="Level1"
+          FontSize="20"
+          FontWeight="SemiBold"
+          Foreground="{ThemeResource TextPrimaryBrush}"
+          Text="{x:Bind local:Ui.Text('Settings_Title')}" />
+    </StackPanel>
+
+    <ScrollViewer Grid.Row="1" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto">
+      <!-- The bottom padding keeps the last line clear of the toast. -->
+      <StackPanel Padding="14,0,14,64">
+
+        <!-- API key: stored only when saved. -->
+        <TextBlock Style="{StaticResource SectionTextStyle}" Text="{x:Bind local:Ui.Text('Settings_ApiKey')}" />
+        <Border Style="{StaticResource CardStyle}">
+          <StackPanel Spacing="10">
+            <PasswordBox
+                x:Name="ApiKeyBox"
+                AutomationProperties.Name="{x:Bind local:Ui.Text('Settings_ApiKey')}"
+                KeyDown="OnApiKeyKeyDown"
+                PasswordChanged="OnApiKeyChanged"
+                PlaceholderText="{x:Bind local:Ui.Text('Settings_ApiKeyPlaceholder')}" />
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Button
+                  Command="{x:Bind Settings.ApplyApiKeyCommand}"
+                  Content="{x:Bind local:Ui.Text('Settings_ApiKeyApply')}"
+                  Style="{StaticResource SecondaryButtonStyle}" />
+              <Button
+                  Command="{x:Bind Settings.ClearApiKeyCommand}"
+                  Content="{x:Bind local:Ui.Text('Settings_ApiKeyClear')}"
+                  Style="{StaticResource SecondaryButtonStyle}" />
+            </StackPanel>
+            <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind local:Ui.Text('Settings_ApiKeyHint')}" />
+            <HyperlinkButton
+                Padding="0"
+                Content="{x:Bind local:Ui.Text('Settings_ApiKeyGet')}"
+                FontSize="12"
+                NavigateUri="https://wallhaven.cc/settings/account" />
+          </StackPanel>
+        </Border>
+
+        <!-- Content purity: SFW always; the others need an API key. -->
+        <TextBlock Style="{StaticResource SectionTextStyle}" Text="{x:Bind local:Ui.Text('Settings_Content')}" />
+        <Border Style="{StaticResource CardStyle}">
+          <StackPanel Spacing="2">
+            <CheckBox Content="{x:Bind local:Ui.Text('Settings_Sfw')}" IsChecked="True" IsEnabled="False" />
+            <CheckBox
+                Content="{x:Bind local:Ui.Text('Settings_Sketchy')}"
+                IsChecked="{x:Bind Settings.AllowSketchy, Mode=TwoWay}"
+                IsEnabled="{x:Bind Settings.CanChangePurity, Mode=OneWay}" />
+            <CheckBox
+                Content="{x:Bind local:Ui.Text('Settings_Nsfw')}"
+                IsChecked="{x:Bind Settings.AllowNsfw, Mode=TwoWay}"
+                IsEnabled="{x:Bind Settings.CanChangePurity, Mode=OneWay}" />
+            <TextBlock
+                Margin="0,6,0,0"
+                Style="{StaticResource CaptionTextStyle}"
+                Text="{x:Bind local:Ui.Text('Settings_ContentHint')}"
+                Visibility="{x:Bind local:Ui.VisibleUnless(Settings.CanChangePurity), Mode=OneWay}" />
+          </StackPanel>
+        </Border>
+
+        <!-- Download folder. -->
+        <TextBlock Style="{StaticResource SectionTextStyle}" Text="{x:Bind local:Ui.Text('Settings_Folder')}" />
+        <Border Style="{StaticResource CardStyle}">
+          <Grid ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock
+                Grid.Column="0"
+                Style="{StaticResource LabelTextStyle}"
+                Text="{x:Bind Settings.DownloadFolder, Mode=OneWay}"
+                TextTrimming="CharacterEllipsis"
+                ToolTipService.ToolTip="{x:Bind Settings.DownloadFolder, Mode=OneWay}" />
+            <Button
+                Grid.Column="1"
+                Command="{x:Bind Settings.ChangeFolderCommand}"
+                Content="{x:Bind local:Ui.Text('Settings_FolderChange')}"
+                Style="{StaticResource SecondaryButtonStyle}" />
+          </Grid>
+        </Border>
+
+        <!-- Start at sign-in and theme. -->
+        <TextBlock Style="{StaticResource SectionTextStyle}" Text="{x:Bind local:Ui.Text('Settings_General')}" />
+        <Border Style="{StaticResource CardStyle}">
+          <StackPanel Spacing="12">
+            <Grid ColumnSpacing="10">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Style="{StaticResource LabelTextStyle}" Text="{x:Bind local:Ui.Text('Settings_LaunchAtStartup')}" />
+              <ToggleSwitch
+                  Grid.Column="1"
+                  MinWidth="0"
+                  AutomationProperties.Name="{x:Bind local:Ui.Text('Settings_LaunchAtStartup')}"
+                  IsOn="{x:Bind Settings.LaunchAtStartup, Mode=TwoWay}"
+                  OffContent=""
+                  OnContent="" />
+            </Grid>
+            <StackPanel Spacing="8">
+              <TextBlock Style="{StaticResource LabelTextStyle}" Text="{x:Bind local:Ui.Text('Settings_Theme')}" />
+              <Grid
+                  Padding="3"
+                  Background="{ThemeResource FieldBrush}"
+                  BorderBrush="{ThemeResource GlassBorderBrush}"
+                  BorderThickness="1"
+                  ColumnSpacing="4"
+                  CornerRadius="12">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <RadioButton
+                    x:Name="ThemeSystem"
+                    Grid.Column="0"
+                    Click="OnThemeClick"
+                    Content="{x:Bind local:Ui.Text('Settings_ThemeSystem')}"
+                    GroupName="Theme"
+                    Style="{StaticResource SegmentRadioStyle}" />
+                <RadioButton
+                    x:Name="ThemeLight"
+                    Grid.Column="1"
+                    Click="OnThemeClick"
+                    Content="{x:Bind local:Ui.Text('Settings_ThemeLight')}"
+                    GroupName="Theme"
+                    Style="{StaticResource SegmentRadioStyle}" />
+                <RadioButton
+                    x:Name="ThemeDark"
+                    Grid.Column="2"
+                    Click="OnThemeClick"
+                    Content="{x:Bind local:Ui.Text('Settings_ThemeDark')}"
+                    GroupName="Theme"
+                    Style="{StaticResource SegmentRadioStyle}" />
+              </Grid>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- About. -->
+        <StackPanel Margin="0,18,0,0" Orientation="Horizontal" Spacing="16">
+          <HyperlinkButton
+              Padding="4,2"
+              Content="{x:Bind local:Ui.Text('Settings_GitHub')}"
+              FontSize="12"
+              NavigateUri="https://github.com/tampleer981/salt.er" />
+          <HyperlinkButton
+              Padding="4,2"
+              Content="{x:Bind local:Ui.Text('Settings_License')}"
+              FontSize="12"
+              NavigateUri="https://github.com/tampleer981/salt.er/blob/main/LICENSE" />
+        </StackPanel>
+        <TextBlock
+            Margin="4,6,0,0"
+            FontSize="11"
+            Foreground="{ThemeResource TextSecondaryBrush}"
+            Text="{x:Bind local:Ui.Text('Settings_Disclaimer')}" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

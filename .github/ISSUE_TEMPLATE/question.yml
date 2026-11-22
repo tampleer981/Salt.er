@@ -1,0 +1,23 @@
+name: Question
+description: Ask how something works or how to do something.
+title: "[Question]: "
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues first; your question may already have an answer. For bugs, use the bug report form.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What do you want to know? Include what you already tried.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Salt.er version
+      description: Shown in Settings. Leave empty if it does not matter.
+    validations:
+      required: false

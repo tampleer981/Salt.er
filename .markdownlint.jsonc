@@ -1,0 +1,8 @@
+{
+  "default": true,
+  // Tables, badges and long URLs make a line limit impractical.
+  "MD013": false,
+  // The README centers its title and uses <picture>, <kbd> and similar HTML.
+  "MD033": false,
+  "MD041": false
+}

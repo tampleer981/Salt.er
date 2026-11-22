@@ -1,0 +1,63 @@
+name: Bug report
+description: Something in Salt.er does not work as expected.
+title: "[Bug]: "
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues first. For questions, use the Question form instead.
+  - type: input
+    id: app-version
+    attributes:
+      label: Salt.er version
+      description: Shown in Settings, or in the name of the installer or ZIP you downloaded.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: windows-version
+    attributes:
+      label: Windows version
+      options:
+        - Windows 11
+        - Windows 10
+    validations:
+      required: true
+  - type: input
+    id: monitors
+    attributes:
+      label: Number of monitors
+      description: Include mixed DPI scaling or taskbar position if relevant.
+      placeholder: "2 (100% and 150%)"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the flyout from the tray icon
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Attach or paste relevant lines from `%LOCALAPPDATA%\Salt.er\logs`. Remove your API key if it appears.
+      render: text
+    validations:
+      required: false

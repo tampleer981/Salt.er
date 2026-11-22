@@ -1,0 +1,11 @@
+{
+  "solution": {
+    "path": "Salt.er.sln",
+    "projects": [
+      "src\\Salter.Core\\Salter.Core.csproj",
+      "src\\Salter.Presentation\\Salter.Presentation.csproj",
+      "tests\\Salter.Core.Tests\\Salter.Core.Tests.csproj",
+      "tests\\Salter.Presentation.Tests\\Salter.Presentation.Tests.csproj"
+    ]
+  }
+}

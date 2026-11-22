@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Colours of the glass surface: a translucent fill over the window's desktop acrylic, a hairline border, a highlight
+  along the top edge and a diagonal sheen. Theme-dependent brushes switch with the flyout's RequestedTheme; reference
+  them with {ThemeResource}.
+-->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <ResourceDictionary.ThemeDictionaries>
+    <!-- Dark; also used for any theme without its own dictionary. -->
+    <ResourceDictionary x:Key="Default">
+      <SolidColorBrush x:Key="GlassFillBrush" Color="#94141619" />
+      <SolidColorBrush x:Key="GlassBorderBrush" Color="#24FFFFFF" />
+      <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFF4F5F8" />
+      <SolidColorBrush x:Key="TextSecondaryBrush" Color="#B3F4F5F8" />
+      <SolidColorBrush x:Key="FieldBrush" Color="#12FFFFFF" />
+      <SolidColorBrush x:Key="ChipBrush" Color="#17FFFFFF" />
+      <SolidColorBrush x:Key="HoverBrush" Color="#2E7F7F7F" />
+      <SolidColorBrush x:Key="PressedBrush" Color="#457F7F7F" />
+      <SolidColorBrush x:Key="SheetBrush" Color="#D112141A" />
+      <SolidColorBrush x:Key="SegmentSelectedBrush" Color="#29FFFFFF" />
+    </ResourceDictionary>
+    <ResourceDictionary x:Key="Light">
+      <SolidColorBrush x:Key="GlassFillBrush" Color="#9EF8F9FB" />
+      <SolidColorBrush x:Key="GlassBorderBrush" Color="#17000000" />
+      <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FF14161B" />
+      <SolidColorBrush x:Key="TextSecondaryBrush" Color="#AD14161B" />
+      <SolidColorBrush x:Key="FieldBrush" Color="#8CFFFFFF" />
+      <SolidColorBrush x:Key="ChipBrush" Color="#0F000000" />
+      <SolidColorBrush x:Key="HoverBrush" Color="#2E7F7F7F" />
+      <SolidColorBrush x:Key="PressedBrush" Color="#457F7F7F" />
+      <SolidColorBrush x:Key="SheetBrush" Color="#E0F6F7FA" />
+      <SolidColorBrush x:Key="SegmentSelectedBrush" Color="#FFFFFFFF" />
+    </ResourceDictionary>
+  </ResourceDictionary.ThemeDictionaries>
+
+  <!-- The inner highlight along the top edge of the glass. -->
+  <SolidColorBrush x:Key="GlassHighlightBrush" Color="#4DFFFFFF" />
+
+  <!-- White at 22 % fading out by 28 %, clear until 72 %, then 8 % at the far corner (a 160° CSS gradient). -->
+  <LinearGradientBrush x:Key="GlassSheenBrush" StartPoint="0.33,0" EndPoint="0.67,1">
+    <GradientStop Offset="0" Color="#38FFFFFF" />
+    <GradientStop Offset="0.28" Color="#00FFFFFF" />
+    <GradientStop Offset="0.72" Color="#00FFFFFF" />
+    <GradientStop Offset="1" Color="#14FFFFFF" />
+  </LinearGradientBrush>
+
+  <SolidColorBrush x:Key="AccentBrush" Color="#FF8FB0FF" />
+  <SolidColorBrush x:Key="OnAccentBrush" Color="#FF0B0D12" />
+  <SolidColorBrush x:Key="AccentHighlightBrush" Color="#8CFFFFFF" />
+
+  <!--
+    Elements floating over wallpapers (refresh button, toast, hover overlay) stay dark glass with white text in both
+    themes, so they read on any image.
+  -->
+  <SolidColorBrush x:Key="FloatingGlassBrush" Color="#8C14161C" />
+  <SolidColorBrush x:Key="FloatingBorderBrush" Color="#47FFFFFF" />
+  <SolidColorBrush x:Key="FloatingHighlightBrush" Color="#59FFFFFF" />
+  <SolidColorBrush x:Key="FloatingTextBrush" Color="#FFFFFFFF" />
+  <SolidColorBrush x:Key="PillBrush" Color="#38FFFFFF" />
+  <SolidColorBrush x:Key="PillHoverBrush" Color="#59FFFFFF" />
+  <SolidColorBrush x:Key="PillBorderBrush" Color="#59FFFFFF" />
+  <SolidColorBrush x:Key="SuccessBrush" Color="#FF8EE6B0" />
+  <SolidColorBrush x:Key="ErrorBrush" Color="#FFFF9C9C" />
+  <SolidColorBrush x:Key="PreviewBorderBrush" Color="#2EFFFFFF" />
+  <SolidColorBrush x:Key="SwatchRingBrush" Color="#40FFFFFF" />
+
+  <LinearGradientBrush x:Key="ThumbnailOverlayBrush" StartPoint="0.5,0" EndPoint="0.5,1">
+    <GradientStop Offset="0" Color="#00000000" />
+    <GradientStop Offset="1" Color="#8C000000" />
+  </LinearGradientBrush>
+
+</ResourceDictionary>

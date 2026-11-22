@@ -1,0 +1,40 @@
+{
+  "data": {
+    "id": "94x38z",
+    "url": "https://wallhaven.cc/w/94x38z",
+    "short_url": "https://whvn.cc/94x38z",
+    "uploader": {
+      "username": "mossy",
+      "group": "User",
+      "avatar": {
+        "200px": "https://wallhaven.cc/images/user/avatar/200/mossy.png",
+        "128px": "https://wallhaven.cc/images/user/avatar/128/mossy.png",
+        "32px": "https://wallhaven.cc/images/user/avatar/32/mossy.png",
+        "20px": "https://wallhaven.cc/images/user/avatar/20/mossy.png"
+      }
+    },
+    "views": 1234,
+    "favorites": 56,
+    "source": "",
+    "purity": "sfw",
+    "category": "general",
+    "dimension_x": 3840,
+    "dimension_y": 2160,
+    "resolution": "3840x2160",
+    "ratio": "1.78",
+    "file_size": 4123456,
+    "file_type": "image/jpeg",
+    "created_at": "2026-11-01 10:00:00",
+    "colors": ["#424153", "#999999"],
+    "path": "https://w.wallhaven.cc/full/94/wallhaven-94x38z.jpg",
+    "thumbs": {
+      "large": "https://th.wallhaven.cc/lg/94/94x38z.jpg",
+      "original": "https://th.wallhaven.cc/orig/94/94x38z.jpg",
+      "small": "https://th.wallhaven.cc/small/94/94x38z.jpg"
+    },
+    "tags": [
+      { "id": 1, "name": "nature", "alias": "", "category_id": 5, "category": "Nature", "purity": "sfw", "created_at": "2015-01-01 00:00:00" },
+      { "id": 2, "name": "fog", "alias": "mist", "category_id": 5, "category": "Nature", "purity": "sfw", "created_at": "2015-01-01 00:00:00" }
+    ]
+  }
+}

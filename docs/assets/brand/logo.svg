@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b1f2b"/>
+      <stop offset="1" stop-color="#0b0d12"/>
+    </linearGradient>
+    <linearGradient id="w1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffb38a"/>
+      <stop offset="0.55" stop-color="#f2588f"/>
+      <stop offset="1" stop-color="#4a1f4f"/>
+    </linearGradient>
+    <linearGradient id="w2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c9a4ff"/>
+      <stop offset="0.5" stop-color="#8a5cf0"/>
+      <stop offset="1" stop-color="#2c1d63"/>
+    </linearGradient>
+    <linearGradient id="w3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e59bff"/>
+      <stop offset="0.6" stop-color="#6e48c9"/>
+      <stop offset="1" stop-color="#251a52"/>
+    </linearGradient>
+    <linearGradient id="w4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffa6d9"/>
+      <stop offset="1" stop-color="#9b4fd6"/>
+    </linearGradient>
+    <filter id="motion" x="-10%" y="-40%" width="120%" height="180%">
+      <feGaussianBlur stdDeviation="2 26"/>
+    </filter>
+    <filter id="motionStrong" x="-10%" y="-60%" width="120%" height="220%">
+      <feGaussianBlur stdDeviation="3 48"/>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+    <linearGradient id="fadeMask" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="0.22" stop-color="#fff" stop-opacity="1"/>
+      <stop offset="0.78" stop-color="#fff" stop-opacity="1"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <mask id="fade"><rect x="0" y="0" width="1024" height="1024" fill="url(#fadeMask)"/></mask>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0e1118" stop-opacity="0.85"/>
+      <stop offset="0.16" stop-color="#0e1118" stop-opacity="0"/>
+      <stop offset="0.84" stop-color="#0e1118" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0e1118" stop-opacity="0.85"/>
+    </linearGradient>
+    <clipPath id="panel"><rect x="232" y="132" width="560" height="760" rx="96"/></clipPath>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.30"/>
+      <stop offset="0.28" stop-color="#ffffff" stop-opacity="0.06"/>
+      <stop offset="0.72" stop-color="#ffffff" stop-opacity="0.02"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.10"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.75"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.35"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+  <!-- ambient glow from the wallpapers behind the glass -->
+  <g filter="url(#soft)" opacity="0.4">
+    <ellipse cx="400" cy="380" rx="300" ry="260" fill="#f2588f"/>
+    <ellipse cx="640" cy="660" rx="300" ry="260" fill="#8a5cf0"/>
+  </g>
+
+  <!-- scrolling feed inside the glass panel -->
+  <g clip-path="url(#panel)">
+    <rect x="232" y="132" width="560" height="760" fill="#0e1118" opacity="0.55"/>
+    <g mask="url(#fade)">
+      <rect x="232" y="40"  width="560" height="250" fill="url(#w4)" filter="url(#motionStrong)"/>
+      <rect x="232" y="300" width="560" height="250" fill="url(#w1)" filter="url(#motion)"/>
+      <!-- sun + horizon hint on the sharpest card -->
+      <g filter="url(#motion)">
+        <circle cx="610" cy="410" r="46" fill="#ffe0ec" opacity="0.9"/>
+        <path d="M232 500 L360 430 L450 470 L560 400 L792 490 L792 550 L232 550 Z" fill="#3a1840" opacity="0.75"/>
+      </g>
+      <rect x="232" y="560" width="560" height="250" fill="url(#w2)" filter="url(#motion)"/>
+      <path d="M232 760 Q420 690 560 735 T792 720 L792 810 L232 810 Z" fill="#24164f" opacity="0.7" filter="url(#motion)"/>
+      <rect x="232" y="820" width="560" height="250" fill="url(#w3)" filter="url(#motionStrong)"/>
+      <g filter="url(#motion)" fill="#0b0d12">
+        <rect x="232" y="290" width="560" height="12"/>
+        <rect x="232" y="550" width="560" height="12"/>
+        <rect x="232" y="810" width="560" height="12"/>
+      </g>
+    </g>
+    <rect x="232" y="132" width="560" height="760" fill="url(#edge)"/>
+    <!-- glass sheen -->
+    <rect x="232" y="132" width="560" height="760" fill="url(#glass)"/>
+  </g>
+  <!-- glass rim -->
+  <rect x="234" y="134" width="556" height="756" rx="94" fill="none" stroke="url(#rim)" stroke-width="4"/>
+  <!-- scroll indicator -->
+  <rect x="742" y="300" width="10" height="150" rx="5" fill="#ffffff" opacity="0.55"/>
+</svg>

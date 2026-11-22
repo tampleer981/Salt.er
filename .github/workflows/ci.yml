@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      # The WinUI app only builds on Windows; the solution filter holds the portable projects.
+      - name: Verify formatting
+        run: dotnet format Salt.er.Portable.slnf --verify-no-changes
+
+      - name: Test
+        run: >
+          dotnet test --solution Salt.er.Portable.slnf -c Release
+          --coverage --report-trx --results-directory ./TestResults
+
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/**
+          if-no-files-found: warn
+
+  build-app:
+    name: Build app (${{ matrix.arch }})
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      # Builds the same release files as a tag would, so packaging breaks show up on every push.
+      - name: Build and package
+        shell: pwsh
+        env:
+          # Velopack needs a version of at least 0.0.1; the run number tells CI builds apart.
+          VERSION: 0.0.1-ci.${{ github.run_number }}
+          ARCH: ${{ matrix.arch }}
+        run: ./build/pack.ps1 -Version $env:VERSION -Arch $env:ARCH
+
+      # The runner is x64, so only that build can run here. A build can succeed and still fail at startup (a missing
+      # XAML resource, for example), so start the published app in the background and wait for its startup log line.
+      - name: Smoke test the published app
+        if: ${{ matrix.arch == 'x64' }}
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'artifacts/publish/x64/Salter.App.exe'
+          $logs = Join-Path $env:LOCALAPPDATA 'Salt.er/logs'
+          # Logged by App.Start once the tray icon is up (App.xaml.cs, LogStarted).
+          $started = 'Salt\.er started \(background: True\)'
+          $since = Get-Date
+          $process = Start-Process -FilePath $exe -ArgumentList '--background' -PassThru
+          # Holding the handle keeps the exit code readable after the process ends.
+          $null = $process.Handle
+
+          function Get-NewestLog {
+            Get-ChildItem -LiteralPath $logs -Filter 'salter-*.log' -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.LastWriteTime -ge $since.AddSeconds(-2) } |
+              Sort-Object -Property LastWriteTime -Descending |
+              Select-Object -First 1
+          }
+
+          function Read-Log($file) {
+            # The app keeps the file open for writing.
+            $stream = [IO.File]::Open($file.FullName, 'Open', 'Read', 'ReadWrite')
+            try { return [IO.StreamReader]::new($stream).ReadToEnd() } finally { $stream.Dispose() }
+          }
+
+          $ok = $false
+          $deadline = (Get-Date).AddSeconds(20)
+          while ((Get-Date) -lt $deadline) {
+            if ($process.HasExited) { break }
+            $log = Get-NewestLog
+            if ($null -ne $log -and (Read-Log $log) -match $started) {
+              $ok = $true
+              break
+            }
+            Start-Sleep -Milliseconds 500
+          }
+
+          $log = Get-NewestLog
+          if ($null -ne $log) {
+            Write-Host "::group::$($log.Name)"
+            Write-Host (Read-Log $log)
+            Write-Host '::endgroup::'
+          }
+          else {
+            Write-Host "No log file in $logs."
+          }
+
+          if ($process.HasExited) {
+            Write-Host "::error::The app exited during startup with code $($process.ExitCode)."
+            exit 1
+          }
+
+          Stop-Process -Id $process.Id -Force
+          if (-not $ok) {
+            Write-Host '::error::The app did not log its startup within 20 seconds.'
+            exit 1
+          }
+
+          Write-Host 'The app started.'
+
+      - name: Upload release files
+        uses: actions/upload-artifact@v4
+        with:
+          name: salter-win-${{ matrix.arch }}
+          path: artifacts/releases/${{ matrix.arch }}
+          if-no-files-found: error
+          retention-days: 7

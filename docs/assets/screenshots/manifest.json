@@ -1,0 +1,101 @@
+{
+  "screen": {
+    "width": 1920,
+    "height": 1080
+  },
+  "wallpaper": {
+    "id": "7jmgey",
+    "url": "https://wallhaven.cc/w/7jmgey",
+    "resolution": "3840x2160"
+  },
+  "screenshots": [
+    {
+      "file": "genre-dark.png",
+      "state": "genre",
+      "theme": "dark",
+      "caption": "Genre chips, sort tabs and the Nature genre selected. (dark theme)",
+      "width": 400,
+      "height": 692
+    },
+    {
+      "file": "hero.png",
+      "state": "hero",
+      "theme": null,
+      "caption": "Salt.er opens as a glass flyout above the tray.",
+      "width": 1451,
+      "height": 816
+    },
+    {
+      "file": "detail-dark.png",
+      "state": "detail",
+      "theme": "dark",
+      "caption": "Wallpaper details: preview, tags and the Set as wallpaper button. (dark theme)",
+      "width": 400,
+      "height": 692
+    },
+    {
+      "file": "applied-dark.png",
+      "state": "applied",
+      "theme": "dark",
+      "caption": "The confirmation toast after setting a wallpaper. (dark theme)",
+      "width": 400,
+      "height": 692
+    },
+    {
+      "file": "search-filters-dark.png",
+      "state": "search-filters",
+      "theme": "dark",
+      "caption": "Searching for \"mountains\" (all genres) with the filters panel open and the 4K+ resolution chosen. (dark theme)",
+      "width": 400,
+      "height": 692
+    },
+    {
+      "file": "settings-dark.png",
+      "state": "settings",
+      "theme": "dark",
+      "caption": "Settings: API key, content, download folder, start with Windows and theme. (dark theme)",
+      "width": 400,
+      "height": 692
+    },
+    {
+      "file": "genre-light.png",
+      "state": "genre",
+      "theme": "light",
+      "caption": "Genre chips, sort tabs and the Nature genre selected. (light theme)",
+      "width": 400,
+      "height": 692
+    },
+    {
+      "file": "detail-light.png",
+      "state": "detail",
+      "theme": "light",
+      "caption": "Wallpaper details: preview, tags and the Set as wallpaper button. (light theme)",
+      "width": 400,
+      "height": 692
+    },
+    {
+      "file": "applied-light.png",
+      "state": "applied",
+      "theme": "light",
+      "caption": "The confirmation toast after setting a wallpaper. (light theme)",
+      "width": 400,
+      "height": 692
+    },
+    {
+      "file": "search-filters-light.png",
+      "state": "search-filters",
+      "theme": "light",
+      "caption": "Searching for \"mountains\" (all genres) with the filters panel open and the 4K+ resolution chosen. (light theme)",
+      "width": 400,
+      "height": 692
+    },
+    {
+      "file": "settings-light.png",
+      "state": "settings",
+      "theme": "light",
+      "caption": "Settings: API key, content, download folder, start with Windows and theme. (light theme)",
+      "width": 400,
+      "height": 692
+    }
+  ]
+}

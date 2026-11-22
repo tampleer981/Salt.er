@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Only the content root lives in markup. The backdrop and the keyboard accelerators are set up in code-behind, where a
+  failure raises a specific exception instead of a bare XAML parse error that aborts the whole window.
+-->
+<Window
+    x:Class="Salter.App.FlyoutWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Grid x:Name="Root" />
+</Window>

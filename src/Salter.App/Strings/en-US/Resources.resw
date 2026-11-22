@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Tray_ToolTip" xml:space="preserve">
+    <value>Salt.er</value>
+    <comment>Tooltip of the notification area icon.</comment>
+  </data>
+  <data name="Tray_Open" xml:space="preserve">
+    <value>Open</value>
+    <comment>Tray menu item that opens the flyout.</comment>
+  </data>
+  <data name="Tray_Settings" xml:space="preserve">
+    <value>Settings</value>
+    <comment>Tray menu item that opens the settings.</comment>
+  </data>
+  <data name="Tray_Exit" xml:space="preserve">
+    <value>Exit</value>
+    <comment>Tray menu item that quits the app.</comment>
+  </data>
+  <data name="Monitor_DisplayName" xml:space="preserve">
+    <value>Display {0}</value>
+    <comment>Name of a monitor in the apply target list; {0} is its 1-based number.</comment>
+  </data>
+  <data name="Search_Placeholder" xml:space="preserve">
+    <value>Search wallhaven…</value>
+    <comment>Placeholder of the search box.</comment>
+  </data>
+  <data name="Search_Name" xml:space="preserve">
+    <value>Search wallpapers</value>
+    <comment>Accessible name of the search box.</comment>
+  </data>
+  <data name="Search_ShortcutHint" xml:space="preserve">
+    <value>Ctrl K</value>
+    <comment>Keyboard shortcut hint shown in the search box.</comment>
+  </data>
+  <data name="Feed_Filters" xml:space="preserve">
+    <value>Filters</value>
+    <comment>Tooltip and accessible name of the filter panel toggle.</comment>
+  </data>
+  <data name="Feed_Settings" xml:space="preserve">
+    <value>Settings</value>
+    <comment>Tooltip and accessible name of the settings button.</comment>
+  </data>
+  <data name="Feed_Refresh" xml:space="preserve">
+    <value>Refresh</value>
+    <comment>Tooltip and accessible name of the floating refresh button.</comment>
+  </data>
+  <data name="Feed_Set" xml:space="preserve">
+    <value>Set</value>
+    <comment>Button on a hovered thumbnail that sets it as the wallpaper on all displays.</comment>
+  </data>
+  <data name="Genre_all" xml:space="preserve">
+    <value>All</value>
+    <comment>Genre chip.</comment>
+  </data>
+  <data name="Genre_nature" xml:space="preserve">
+    <value>Nature</value>
+    <comment>Genre chip.</comment>
+  </data>
+  <data name="Genre_anime" xml:space="preserve">
+    <value>Anime</value>
+    <comment>Genre chip.</comment>
+  </data>
+  <data name="Genre_space" xml:space="preserve">
+    <value>Space</value>
+    <comment>Genre chip.</comment>
+  </data>
+  <data name="Genre_city" xml:space="preserve">
+    <value>City</value>
+    <comment>Genre chip.</comment>
+  </data>
+  <data name="Genre_architecture" xml:space="preserve">
+    <value>Architecture</value>
+    <comment>Genre chip.</comment>
+  </data>
+  <data name="Genre_abstract" xml:space="preserve">
+    <value>Abstract</value>
+    <comment>Genre chip.</comment>
+  </data>
+  <data name="Genre_cars" xml:space="preserve">
+    <value>Cars</value>
+    <comment>Genre chip.</comment>
+  </data>
+  <data name="Genre_minimal" xml:space="preserve">
+    <value>Minimal</value>
+    <comment>Genre chip.</comment>
+  </data>
+  <data name="Sort_Toplist" xml:space="preserve">
+    <value>Toplist</value>
+    <comment>Sort tab: most popular this month.</comment>
+  </data>
+  <data name="Sort_Latest" xml:space="preserve">
+    <value>Latest</value>
+    <comment>Sort tab: newest first.</comment>
+  </data>
+  <data name="Sort_Hot" xml:space="preserve">
+    <value>Hot</value>
+    <comment>Sort tab: trending now.</comment>
+  </data>
+  <data name="Sort_Random" xml:space="preserve">
+    <value>Random</value>
+    <comment>Sort tab: random order.</comment>
+  </data>
+  <data name="Filter_Ratio" xml:space="preserve">
+    <value>Ratio</value>
+    <comment>Label of the aspect ratio filter.</comment>
+  </data>
+  <data name="Filter_Resolution" xml:space="preserve">
+    <value>Resolution</value>
+    <comment>Label of the minimum resolution filter.</comment>
+  </data>
+  <data name="Filter_Color" xml:space="preserve">
+    <value>Color</value>
+    <comment>Label of the colour filter.</comment>
+  </data>
+  <data name="Filter_Any" xml:space="preserve">
+    <value>Any</value>
+    <comment>Filter value: no restriction.</comment>
+  </data>
+  <data name="Filter_Native" xml:space="preserve">
+    <value>Native</value>
+    <comment>Resolution filter value: at least the primary display's resolution.</comment>
+  </data>
+  <data name="Filter_4K" xml:space="preserve">
+    <value>4K+</value>
+    <comment>Resolution filter value: at least 3840 × 2160.</comment>
+  </data>
+  <data name="Color_red" xml:space="preserve">
+    <value>Red</value>
+    <comment>Name of a colour swatch in the colour filter.</comment>
+  </data>
+  <data name="Color_orange" xml:space="preserve">
+    <value>Orange</value>
+    <comment>Name of a colour swatch in the colour filter.</comment>
+  </data>
+  <data name="Color_yellow" xml:space="preserve">
+    <value>Yellow</value>
+    <comment>Name of a colour swatch in the colour filter.</comment>
+  </data>
+  <data name="Color_green" xml:space="preserve">
+    <value>Green</value>
+    <comment>Name of a colour swatch in the colour filter.</comment>
+  </data>
+  <data name="Color_teal" xml:space="preserve">
+    <value>Teal</value>
+    <comment>Name of a colour swatch in the colour filter.</comment>
+  </data>
+  <data name="Color_blue" xml:space="preserve">
+    <value>Blue</value>
+    <comment>Name of a colour swatch in the colour filter.</comment>
+  </data>
+  <data name="Color_violet" xml:space="preserve">
+    <value>Violet</value>
+    <comment>Name of a colour swatch in the colour filter.</comment>
+  </data>
+  <data name="Color_mono" xml:space="preserve">
+    <value>Mono</value>
+    <comment>Name of a colour swatch in the colour filter: greys.</comment>
+  </data>
+  <data name="Detail_Back" xml:space="preserve">
+    <value>Back</value>
+    <comment>Tooltip and accessible name of the back button.</comment>
+  </data>
+  <data name="Detail_Summary" xml:space="preserve">
+    <value>{0} · {1}</value>
+    <comment>Detail header; {0} is the resolution, {1} the file size.</comment>
+  </data>
+  <data name="Detail_OpenInBrowser" xml:space="preserve">
+    <value>Open on wallhaven</value>
+    <comment>Tooltip and accessible name of the link to the wallpaper's page.</comment>
+  </data>
+  <data name="Detail_ApplyTo" xml:space="preserve">
+    <value>Apply to</value>
+    <comment>Label of the display choice.</comment>
+  </data>
+  <data name="Detail_AllDisplays" xml:space="preserve">
+    <value>All displays</value>
+    <comment>Display choice: every display.</comment>
+  </data>
+  <data name="Detail_Set" xml:space="preserve">
+    <value>Set as wallpaper</value>
+    <comment>Primary button of the detail screen.</comment>
+  </data>
+  <data name="Detail_Attribution" xml:space="preserve">
+    <value>by {0} · via wallhaven.cc</value>
+    <comment>Credit line; {0} is the uploader's name.</comment>
+  </data>
+  <data name="Detail_UnknownUploader" xml:space="preserve">
+    <value>unknown</value>
+    <comment>Uploader name used in the credit line when wallhaven does not report one.</comment>
+  </data>
+  <data name="Toast_Applied" xml:space="preserve">
+    <value>Applied to {0}</value>
+    <comment>Toast after setting the wallpaper on one display; {0} is the display's name.</comment>
+  </data>
+  <data name="Toast_AppliedAll" xml:space="preserve">
+    <value>Applied to all displays</value>
+    <comment>Toast after setting the wallpaper on every display.</comment>
+  </data>
+  <data name="Toast_Failed" xml:space="preserve">
+    <value>Couldn't set the wallpaper</value>
+    <comment>Toast when downloading or setting the wallpaper failed.</comment>
+  </data>
+  <data name="Toast_SettingsSaveFailed" xml:space="preserve">
+    <value>Couldn't save settings</value>
+    <comment>Toast when a setting could not be saved.</comment>
+  </data>
+  <data name="State_Empty" xml:space="preserve">
+    <value>Nothing found</value>
+    <comment>Feed state when a query has no results.</comment>
+  </data>
+  <data name="State_ResetFilters" xml:space="preserve">
+    <value>Reset filters</value>
+    <comment>Button in the empty state.</comment>
+  </data>
+  <data name="State_Retry" xml:space="preserve">
+    <value>Retry</value>
+    <comment>Button in the error states.</comment>
+  </data>
+  <data name="Error_Network" xml:space="preserve">
+    <value>Can't reach wallhaven. Check your connection.</value>
+    <comment>Feed error: no connection.</comment>
+  </data>
+  <data name="Error_RateLimited" xml:space="preserve">
+    <value>Too many requests. Try again in a minute.</value>
+    <comment>Feed error: wallhaven's request limit was reached.</comment>
+  </data>
+  <data name="Error_ApiKeyRejected" xml:space="preserve">
+    <value>Your API key was rejected. Check it in Settings.</value>
+    <comment>Feed error: wallhaven refused the API key.</comment>
+  </data>
+  <data name="Error_Server" xml:space="preserve">
+    <value>wallhaven is having trouble. Try again later.</value>
+    <comment>Feed error: wallhaven failed or answered unexpectedly.</comment>
+  </data>
+  <data name="Settings_Title" xml:space="preserve">
+    <value>Settings</value>
+    <comment>Title of the settings screen.</comment>
+  </data>
+  <data name="Settings_ApiKey" xml:space="preserve">
+    <value>wallhaven API key</value>
+    <comment>Section and field label for the API key.</comment>
+  </data>
+  <data name="Settings_ApiKeyPlaceholder" xml:space="preserve">
+    <value>Paste your API key</value>
+    <comment>Placeholder of the API key field.</comment>
+  </data>
+  <data name="Settings_ApiKeyApply" xml:space="preserve">
+    <value>Save</value>
+    <comment>Button that stores the API key.</comment>
+  </data>
+  <data name="Settings_ApiKeyClear" xml:space="preserve">
+    <value>Remove</value>
+    <comment>Button that removes the stored API key.</comment>
+  </data>
+  <data name="Settings_ApiKeyHint" xml:space="preserve">
+    <value>Optional. Needed for Sketchy and NSFW content.</value>
+    <comment>Explains what the API key is for.</comment>
+  </data>
+  <data name="Settings_ApiKeyGet" xml:space="preserve">
+    <value>Get your API key</value>
+    <comment>Link to the wallhaven account page that shows the key.</comment>
+  </data>
+  <data name="Settings_Content" xml:space="preserve">
+    <value>Content</value>
+    <comment>Section label for the purity levels.</comment>
+  </data>
+  <data name="Settings_Sfw" xml:space="preserve">
+    <value>SFW</value>
+    <comment>Purity level: safe for work; always included.</comment>
+  </data>
+  <data name="Settings_Sketchy" xml:space="preserve">
+    <value>Sketchy</value>
+    <comment>Purity level: sketchy.</comment>
+  </data>
+  <data name="Settings_Nsfw" xml:space="preserve">
+    <value>NSFW</value>
+    <comment>Purity level: not safe for work.</comment>
+  </data>
+  <data name="Settings_ContentHint" xml:space="preserve">
+    <value>Save an API key to include Sketchy and NSFW wallpapers.</value>
+    <comment>Shown while the purity levels cannot be changed.</comment>
+  </data>
+  <data name="Settings_Folder" xml:space="preserve">
+    <value>Download folder</value>
+    <comment>Section label for the download folder.</comment>
+  </data>
+  <data name="Settings_FolderChange" xml:space="preserve">
+    <value>Change</value>
+    <comment>Button that opens the folder picker.</comment>
+  </data>
+  <data name="Settings_General" xml:space="preserve">
+    <value>General</value>
+    <comment>Section label for start-up and theme.</comment>
+  </data>
+  <data name="Settings_LaunchAtStartup" xml:space="preserve">
+    <value>Start with Windows</value>
+    <comment>Toggle that starts the app at sign-in.</comment>
+  </data>
+  <data name="Settings_Theme" xml:space="preserve">
+    <value>Theme</value>
+    <comment>Label of the theme choice.</comment>
+  </data>
+  <data name="Settings_ThemeSystem" xml:space="preserve">
+    <value>System</value>
+    <comment>Theme choice: follow Windows.</comment>
+  </data>
+  <data name="Settings_ThemeLight" xml:space="preserve">
+    <value>Light</value>
+    <comment>Theme choice.</comment>
+  </data>
+  <data name="Settings_ThemeDark" xml:space="preserve">
+    <value>Dark</value>
+    <comment>Theme choice.</comment>
+  </data>
+  <data name="Settings_GitHub" xml:space="preserve">
+    <value>GitHub</value>
+    <comment>Link to the project's repository.</comment>
+  </data>
+  <data name="Settings_License" xml:space="preserve">
+    <value>License</value>
+    <comment>Link to the project's license.</comment>
+  </data>
+  <data name="Settings_Disclaimer" xml:space="preserve">
+    <value>Not affiliated with wallhaven.cc</value>
+    <comment>Legal note at the bottom of the settings.</comment>
+  </data>
+</root>

@@ -1,0 +1,968 @@
+#Requires -Version 7.2
+<#
+.SYNOPSIS
+    Captures real screenshots of the running Salt.er app for the documentation.
+
+.DESCRIPTION
+    Starts the published app, drives its flyout with UI Automation and captures each screen with GDI. Run it on a
+    Windows desktop session nobody uses at the same time (for example a GitHub-hosted Windows runner): it changes
+    the wallpaper, the display resolution and the app's settings, and stops any running Salt.er.
+
+    For each theme (Dark, Light) it writes settings.json with that theme, starts the app and captures:
+      genre-<theme>.png           the Nature genre, nothing hovered (plus hero.png in Dark: the flyout above the
+                                  taskbar)
+      feed-<theme>.png            the same feed with the pointer on the first wallpaper, showing its Set button
+      detail-<theme>.png          the first wallpaper's details
+      applied-<theme>.png         the toast after setting it as the wallpaper
+      search-filters-<theme>.png  a search for "mountains" with the filters panel open and 4K+ chosen
+      settings-<theme>.png        the settings screen
+    Stray system dialogs are closed first, and focus rectangles and hover states are cleared before each capture
+    except where the state shows them.
+    and writes manifest.json listing the files and their captions.
+
+    A state that fails is logged, a full-screen image of the moment is saved under diagnostics/, and the script
+    moves on. It exits with 1 only if no screenshot was produced.
+
+.PARAMETER AppPath
+    Path to the published Salter.App.exe.
+
+.PARAMETER OutputDir
+    Folder for the screenshots. Defaults to docs/assets/screenshots in the repository.
+
+.PARAMETER ScreenWidth
+    Display width to switch to before capturing, if the display allows it.
+
+.PARAMETER ScreenHeight
+    Display height to switch to before capturing, if the display allows it.
+
+.PARAMETER SettleSeconds
+    Time given to thumbnails to download and decode once the list shows, before a capture.
+
+.EXAMPLE
+    pwsh tools/screenshots/Capture-Screenshots.ps1 -AppPath artifacts/screenshot-app/Salter.App.exe
+#>
+using namespace System.Windows.Automation
+
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory)]
+    [string] $AppPath,
+
+    [string] $OutputDir = (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'docs/assets/screenshots'),
+
+    [ValidateRange(800, 7680)]
+    [int] $ScreenWidth = 1920,
+
+    [ValidateRange(600, 4320)]
+    [int] $ScreenHeight = 1080,
+
+    [ValidateRange(0, 60)]
+    [int] $SettleSeconds = 6
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+if (-not $IsWindows) {
+    throw 'The app is a WinUI 3 application; screenshots can only be captured on Windows.'
+}
+
+# --- Names the script looks for (the app's English UI text, from Strings/en-US/Resources.resw) ---------------------
+
+$ProcessName = 'Salter.App'
+$WindowTitle = 'Salt.er'
+$Ui = @{
+    Settings     = 'Settings'           # Feed_Settings: settings button in the feed header
+    Filters      = 'Filters'            # Feed_Filters: filters toggle in the feed header
+    Search       = 'Search wallpapers'  # Search_Name: the search box
+    Back         = 'Back'               # Detail_Back: back button of the detail and settings screens
+    SetWallpaper = 'Set as wallpaper'   # Detail_Set: apply button text in the detail screen
+    Genre        = 'Nature'             # Genre_nature: a genre chip
+    Resolution   = '4K+'                # Filter_4K: a minimum resolution chip in the filters panel
+    SettingsHead = 'Settings'           # Settings_Title: heading of the settings screen
+}
+$SearchQuery = 'mountains'
+# Thumbnails are buttons named after the wallpaper's resolution, such as "3840x2160".
+$ThumbnailPattern = '^\d{3,5}\s*[x\u00D7]\s*\d{3,5}$'
+# Toast texts: Toast_Applied / Toast_AppliedAll on success, Toast_Failed on failure.
+$ToastSuccessPattern = '^Applied to '
+$ToastFailurePattern = "^Couldn't set the wallpaper"
+
+$Captions = [ordered]@{
+    'hero'           = 'Salt.er opens as a glass flyout above the tray.'
+    'feed'           = 'The feed (Nature genre, Toplist order) with the Set button shown on the wallpaper under the pointer.'
+    'genre'          = 'Genre chips, sort tabs and the Nature genre selected.'
+    'search-filters' = 'Searching for "mountains" (all genres) with the filters panel open and the 4K+ resolution chosen.'
+    'detail'         = 'Wallpaper details: preview, tags and the Set as wallpaper button.'
+    'applied'        = 'The confirmation toast after setting a wallpaper.'
+    'settings'       = 'Settings: API key, content, download folder, start with Windows and theme.'
+}
+
+$CaptureMargin = 16
+$script:Produced = [System.Collections.Generic.List[object]]::new()
+$script:Failures = [System.Collections.Generic.List[string]]::new()
+$script:WallpaperFile = $null
+$script:WallpaperInfo = $null
+
+# --- Logging -------------------------------------------------------------------------------------------------------
+
+function Write-Step([string] $Message) {
+    Write-Host ('[{0:HH:mm:ss}] {1}' -f (Get-Date), $Message)
+}
+
+function Write-Problem([string] $Message) {
+    # A GitHub Actions annotation, so the problem shows on the run summary as well.
+    Write-Host "::warning::$Message"
+}
+
+# --- Setup ---------------------------------------------------------------------------------------------------------
+
+function Initialize-Libraries {
+    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Drawing
+    Add-Type -Path (Join-Path $PSScriptRoot 'ScreenshotNative.cs')
+    # Before any coordinates are read: UI Automation, the cursor and the screen copy then all use physical pixels.
+    $aware = [ScreenshotNative]::MakeDpiAware()
+    Write-Step "DPI awareness set: $aware (false means it was already set)"
+}
+
+function Set-ScreenResolution {
+    $before = '{0}x{1}' -f [ScreenshotNative]::ScreenWidth, [ScreenshotNative]::ScreenHeight
+    if ($before -eq "${ScreenWidth}x${ScreenHeight}") {
+        Write-Step "Screen is already $before"
+        return
+    }
+
+    try {
+        $code = [ScreenshotNative]::SetResolution($ScreenWidth, $ScreenHeight)
+        Write-Step "ChangeDisplaySettings(${ScreenWidth}x${ScreenHeight}) returned $code (0 = success)"
+        if ($code -ne 0 -and (Get-Command -Name Set-DisplayResolution -ErrorAction SilentlyContinue)) {
+            Set-DisplayResolution -Width $ScreenWidth -Height $ScreenHeight -Force
+        }
+    }
+    catch {
+        Write-Problem "Could not change the screen resolution: $($_.Exception.Message)"
+    }
+
+    Start-Sleep -Seconds 2
+    Write-Step ('Screen: {0} -> {1}x{2}' -f $before, [ScreenshotNative]::ScreenWidth, [ScreenshotNative]::ScreenHeight)
+}
+
+function Set-DesktopAppearance {
+    # Transparency on, so the flyout's acrylic shows the wallpaper; dark taskbar for the hero image. Best effort.
+    try {
+        $personalize = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
+        if (-not (Test-Path -LiteralPath $personalize)) {
+            New-Item -Path $personalize -Force | Out-Null
+        }
+
+        Set-ItemProperty -LiteralPath $personalize -Name EnableTransparency -Value 1 -Type DWord
+        Set-ItemProperty -LiteralPath $personalize -Name SystemUsesLightTheme -Value 0 -Type DWord
+        # Fill the screen with the wallpaper, whatever its size.
+        Set-ItemProperty -LiteralPath 'HKCU:\Control Panel\Desktop' -Name WallpaperStyle -Value '10'
+        Set-ItemProperty -LiteralPath 'HKCU:\Control Panel\Desktop' -Name TileWallpaper -Value '0'
+        # No Windows edition and build text on the desktop; it takes effect when the wallpaper is set.
+        Set-ItemProperty -LiteralPath 'HKCU:\Control Panel\Desktop' -Name PaintDesktopVersion -Value 0 -Type DWord
+        [ScreenshotNative]::BroadcastSettingChange('ImmersiveColorSet')
+        Write-Step 'Desktop: transparency on, dark taskbar, wallpaper style fill, no version text'
+    }
+    catch {
+        Write-Problem "Could not change the desktop appearance: $($_.Exception.Message)"
+    }
+
+    try {
+        # Nothing else on the desktop: the hero image shows the flyout over the wallpaper.
+        (New-Object -ComObject Shell.Application).MinimizeAll()
+        Write-Step 'Minimized all windows'
+    }
+    catch {
+        Write-Problem "Could not minimize windows: $($_.Exception.Message)"
+    }
+}
+
+function Get-DesktopWallpaper {
+    # One SFW general wallpaper from wallhaven's toplist; the default wallpaper stays if anything fails.
+    $search = 'https://wallhaven.cc/api/v1/search?categories=100&purity=100&sorting=toplist&topRange=1M' +
+        '&atleast=1920x1080&ratios=16x9'
+    try {
+        Write-Step "Fetching a wallpaper: $search"
+        $response = Invoke-RestMethod -Uri $search -TimeoutSec 30
+        $first = @($response.data)[0]
+        $extension = [System.IO.Path]::GetExtension(([uri] $first.path).AbsolutePath)
+        $file = Join-Path (Get-TempRoot) "desktop-wallpaper$extension"
+        Invoke-WebRequest -Uri $first.path -OutFile $file -TimeoutSec 120
+        $script:WallpaperFile = $file
+        $script:WallpaperInfo = [ordered]@{ id = $first.id; url = $first.url; resolution = $first.resolution }
+        Write-Step "Downloaded wallpaper $($first.id) ($($first.resolution)) to $file"
+    }
+    catch {
+        Write-Problem "Could not download a wallpaper, keeping the current one: $($_.Exception.Message)"
+    }
+}
+
+function Set-DesktopWallpaper {
+    if ($null -eq $script:WallpaperFile) {
+        return
+    }
+
+    try {
+        [ScreenshotNative]::SetWallpaper($script:WallpaperFile)
+        Write-Step "Wallpaper set: $($script:WallpaperFile)"
+    }
+    catch {
+        Write-Problem "Could not set the wallpaper: $($_.Exception.Message)"
+    }
+}
+
+function Get-TempRoot {
+    $root = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [System.IO.Path]::GetTempPath() }
+    $folder = Join-Path $root 'salter-screenshots'
+    New-Item -ItemType Directory -Path $folder -Force | Out-Null
+    return $folder
+}
+
+# --- App lifecycle -------------------------------------------------------------------------------------------------
+
+function Get-AppDataFolder {
+    return Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Salt.er'
+}
+
+function Write-AppSettings([string] $Theme) {
+    $folder = Get-AppDataFolder
+    New-Item -ItemType Directory -Path $folder -Force | Out-Null
+    $downloads = Join-Path (Get-TempRoot) 'downloads'
+    # The shape JsonSettingsStore reads: camel case, enums as names.
+    $settings = [ordered]@{
+        downloadFolder  = $downloads
+        launchAtStartup = $false
+        theme           = $Theme
+        purity          = 'Sfw'
+    }
+    $path = Join-Path $folder 'settings.json'
+    [System.IO.File]::WriteAllText($path, ($settings | ConvertTo-Json))
+    Write-Step "Wrote $path (theme $Theme, downloads to $downloads)"
+}
+
+function Stop-App {
+    $running = @(Get-Process -Name $ProcessName -ErrorAction SilentlyContinue)
+    if ($running.Count -eq 0) {
+        return
+    }
+
+    Write-Step "Stopping $($running.Count) running $ProcessName process(es)"
+    $running | Stop-Process -Force
+    $running | Wait-Process -Timeout 20 -ErrorAction SilentlyContinue
+}
+
+function Start-App {
+    Write-Step "Starting $AppPath"
+    # Without --background the app opens its flyout; a second start while it runs opens the running flyout again.
+    Start-Process -FilePath $AppPath -WorkingDirectory (Split-Path -Parent $AppPath) | Out-Null
+}
+
+function Write-AppLog {
+    $logs = Join-Path (Get-AppDataFolder) 'logs'
+    $latest = Get-ChildItem -LiteralPath $logs -Filter '*.log' -ErrorAction SilentlyContinue |
+        Sort-Object -Property LastWriteTime | Select-Object -Last 1
+    if ($null -eq $latest) {
+        Write-Step "No app log in $logs"
+        return
+    }
+
+    Write-Step "Last lines of the app log $($latest.FullName):"
+    # The app keeps the file open; share it for reading.
+    $stream = [System.IO.FileStream]::new(
+        $latest.FullName, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+    try {
+        $text = [System.IO.StreamReader]::new($stream).ReadToEnd()
+    }
+    finally {
+        $stream.Dispose()
+    }
+
+    $text -split "`r?`n" | Select-Object -Last 60 | ForEach-Object { Write-Host "    $_" }
+}
+
+# --- UI Automation -------------------------------------------------------------------------------------------------
+
+function Get-FlyoutWindow {
+    # The flyout is the app's top-level window titled "Salt.er"; a hidden flyout is not in the tree.
+    foreach ($process in @(Get-Process -Name $ProcessName -ErrorAction SilentlyContinue)) {
+        $condition = [AndCondition]::new(
+            [PropertyCondition]::new([AutomationElement]::ProcessIdProperty, $process.Id),
+            [PropertyCondition]::new([AutomationElement]::ControlTypeProperty, [ControlType]::Window))
+        foreach ($window in [AutomationElement]::RootElement.FindAll([TreeScope]::Children, $condition)) {
+            if ($window.Current.Name -eq $WindowTitle -and -not $window.Current.IsOffscreen) {
+                return $window
+            }
+        }
+    }
+
+    return $null
+}
+
+function Wait-Until {
+    param(
+        [Parameter(Mandatory)] [string] $Description,
+        [Parameter(Mandatory)] [scriptblock] $Condition,
+        [int] $TimeoutSeconds = 20,
+        [int] $IntervalMilliseconds = 250
+    )
+
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    $lastError = $null
+    while ($true) {
+        try {
+            $result = & $Condition
+            if ($result) {
+                return $result
+            }
+        }
+        catch [ElementNotAvailableException], [System.Runtime.InteropServices.COMException] {
+            # The tree changed under the query; try again.
+            $lastError = $_.Exception.Message
+        }
+
+        if ([DateTime]::UtcNow -ge $deadline) {
+            $suffix = if ($lastError) { " (last error: $lastError)" } else { '' }
+            throw "Timed out after $TimeoutSeconds s waiting for $Description$suffix."
+        }
+
+        Start-Sleep -Milliseconds $IntervalMilliseconds
+    }
+}
+
+function Get-Flyout {
+    # The flyout hides when it loses focus. If it is gone, starting the app again shows the running instance's
+    # flyout on the screen it was on.
+    $window = Get-FlyoutWindow
+    if ($null -ne $window) {
+        return $window
+    }
+
+    Write-Problem 'The flyout is not visible; starting the app again to reopen it.'
+    Start-App
+    return Wait-Until -Description 'the flyout window' -TimeoutSeconds 30 -Condition { Get-FlyoutWindow }
+}
+
+function Find-All([AutomationElement] $Root, [ControlType] $Type) {
+    $condition = [PropertyCondition]::new([AutomationElement]::ControlTypeProperty, $Type)
+    return @($Root.FindAll([TreeScope]::Descendants, $condition) | Where-Object { -not $_.Current.IsOffscreen })
+}
+
+function Find-Named([AutomationElement] $Root, [ControlType] $Type, [string] $Name) {
+    return Find-All $Root $Type | Where-Object { $_.Current.Name -eq $Name } | Select-Object -First 1
+}
+
+function Find-Text([AutomationElement] $Root, [string] $Pattern) {
+    return Find-All $Root ([ControlType]::Text) | Where-Object { $_.Current.Name -match $Pattern } |
+        Select-Object -First 1
+}
+
+function Get-Thumbnails([AutomationElement] $Root) {
+    # Top to bottom, so the first is the one at the top of the list.
+    return @(Find-All $Root ([ControlType]::Button) |
+        Where-Object { $_.Current.Name -match $ThumbnailPattern } |
+        Sort-Object -Property { $_.Current.BoundingRectangle.Top })
+}
+
+function Get-FirstThumbnail([AutomationElement] $Root) {
+    $thumbnails = @(Get-Thumbnails $Root)
+    if ($thumbnails.Count -eq 0) {
+        throw 'No wallpaper thumbnail is shown.'
+    }
+
+    return $thumbnails[0]
+}
+
+function Find-ButtonWithText([AutomationElement] $Root, [string] $Text) {
+    # A button whose content is a panel may have no name of its own; then its text is a child element.
+    foreach ($button in Find-All $Root ([ControlType]::Button)) {
+        if ($button.Current.Name -eq $Text) {
+            return $button
+        }
+
+        $label = [PropertyCondition]::new([AutomationElement]::NameProperty, $Text)
+        if ($null -ne $button.FindFirst([TreeScope]::Descendants, $label)) {
+            return $button
+        }
+    }
+
+    return $null
+}
+
+function Get-Center([AutomationElement] $Element) {
+    $rect = $Element.Current.BoundingRectangle
+    return [pscustomobject]@{ X = [int]($rect.X + $rect.Width / 2); Y = [int]($rect.Y + $rect.Height / 2) }
+}
+
+function Get-Pattern([AutomationElement] $Element, [AutomationPattern] $Pattern) {
+    $provider = $null
+    if ($Element.TryGetCurrentPattern($Pattern, [ref] $provider)) {
+        return $provider
+    }
+
+    return $null
+}
+
+function Invoke-Click([AutomationElement] $Element) {
+    $center = Get-Center $Element
+    Write-Step "  mouse click at ($($center.X), $($center.Y)) on '$($Element.Current.Name)'"
+    [ScreenshotNative]::Click($center.X, $center.Y)
+}
+
+function Invoke-Element([AutomationElement] $Element) {
+    # The Invoke pattern clicks a button without moving the mouse or taking the focus.
+    $invoke = Get-Pattern $Element ([InvokePattern]::Pattern)
+    if ($null -ne $invoke) {
+        Write-Step "  invoke '$($Element.Current.Name)'"
+        $invoke.Invoke()
+        return
+    }
+
+    Invoke-Click $Element
+}
+
+function Select-Element([AutomationElement] $Element) {
+    # Chips are radio buttons; selecting one through UI Automation clicks it, which runs the view's handler.
+    $selection = Get-Pattern $Element ([SelectionItemPattern]::Pattern)
+    if ($null -ne $selection) {
+        Write-Step "  select '$($Element.Current.Name)'"
+        $selection.Select()
+        Start-Sleep -Milliseconds 300
+        if ($selection.Current.IsSelected) {
+            return
+        }
+
+        Write-Problem "Selecting '$($Element.Current.Name)' had no effect; clicking it instead."
+    }
+
+    Invoke-Click $Element
+}
+
+function Show-Feed {
+    # The detail and settings screens have a Back button; the feed has none.
+    $back = Find-Named (Get-Flyout) ([ControlType]::Button) $Ui.Back
+    if ($null -ne $back) {
+        Invoke-Element $back
+        $null = Wait-Until -Description 'the feed' -Condition {
+            Find-Named (Get-Flyout) ([ControlType]::Button) $Ui.Settings
+        }
+    }
+}
+
+function Clear-FocusVisuals {
+    # Focus rectangles show while the last input came from the keyboard (the Enter that submitted the search, for
+    # example). A click on a blank spot of the flyout, just below its top edge in the middle, makes the last input a
+    # pointer one again without activating anything; the cursor then leaves the flyout, so no hover state shows.
+    $rect = (Get-Flyout).Current.BoundingRectangle
+    [ScreenshotNative]::Click([int]($rect.X + $rect.Width / 2), [int]$rect.Y + 6)
+    Move-CursorAway
+    Start-Sleep -Milliseconds 400
+}
+
+function Close-StrayDialogs([switch] $ListWindows) {
+    # The runner can show system message boxes (for example a "System Properties" paging file notice) that would
+    # appear in the captures. Only standard dialogs (window class #32770) are closed: other windows, such as the
+    # runner's own console, must stay.
+    $closed = 0
+    foreach ($window in [AutomationElement]::RootElement.FindAll([TreeScope]::Children, [Condition]::TrueCondition)) {
+        try {
+            $current = $window.Current
+            if ($ListWindows) {
+                Write-Step ("  top-level window: '{0}' class={1} pid={2}" -f $current.Name, $current.ClassName,
+                    $current.ProcessId)
+            }
+
+            if ($current.ClassName -ne '#32770') {
+                continue
+            }
+
+            Write-Step "  closing dialog '$($current.Name)'"
+            [ScreenshotNative]::CloseWindow([IntPtr]$current.NativeWindowHandle)
+            $closed++
+        }
+        catch {
+            Write-Step "  could not inspect or close a window: $($_.Exception.Message)"
+        }
+    }
+
+    if ($closed -gt 0) {
+        Start-Sleep -Milliseconds 500
+    }
+}
+
+function Move-CursorAway {
+    # Parks the pointer away from the flyout, so no hover state shows in the next capture. Real mouse input, so a
+    # hovered element gets PointerExited; SetCursorPos alone does not reach the flyout as pointer movement.
+    [ScreenshotNative]::MovePointer(10, 10, 4)
+}
+
+function Get-RegionHash([System.Windows.Rect] $Rect) {
+    $path = Join-Path (Get-TempRoot) "region-$([Guid]::NewGuid().ToString('N')).png"
+    try {
+        Save-ScreenRegion ([int]$Rect.X) ([int]$Rect.Y) ([int]$Rect.Width) ([int]$Rect.Height) $path
+        return (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+    }
+    finally {
+        Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Test-SetButtonShown([AutomationElement] $Thumbnail) {
+    # The overlay's Set button is always in the UI Automation tree (the overlay only fades), but it takes hits only
+    # while the overlay is shown: then the element at its centre is the button (or its text), else the thumbnail.
+    $setName = [PropertyCondition]::new([AutomationElement]::NameProperty, $Ui.SetWallpaper)
+    $button = $Thumbnail.FindFirst([TreeScope]::Descendants, $setName)
+    if ($null -eq $button) {
+        Write-Step '  no Set button inside the first thumbnail'
+        return $false
+    }
+
+    $center = Get-Center $button
+    $hit = [AutomationElement]::FromPoint([System.Windows.Point]::new($center.X, $center.Y))
+    $walker = [TreeWalker]::ControlViewWalker
+    for ($i = 0; $null -ne $hit -and $i -lt 3; $i++) {
+        if ($hit.Current.Name -eq $Ui.SetWallpaper -and $hit.Current.ControlType -eq [ControlType]::Button) {
+            Write-Step "  Set button on screen at ($($center.X), $($center.Y)), offscreen: $($button.Current.IsOffscreen)"
+            return $true
+        }
+
+        $hit = $walker.GetParent($hit)
+    }
+
+    return $false
+}
+
+function Show-HoverOverlay([AutomationElement] $Thumbnail) {
+    # The thumbnail without hover, to compare with the capture once the overlay shows.
+    $rect = $Thumbnail.Current.BoundingRectangle
+    $before = Get-RegionHash $rect
+    $center = Get-Center $Thumbnail
+    Write-Step "  pointer onto the first wallpaper at ($($center.X), $($center.Y))"
+    # Onto the wallpaper in small steps, then a last nudge inside it, so the flyout sees the pointer enter and move.
+    [ScreenshotNative]::MovePointer($center.X, $center.Y - 30, 8)
+    [ScreenshotNative]::MovePointer($center.X, $center.Y, 3)
+    Start-Sleep -Milliseconds 400
+
+    $shown = $false
+    try {
+        $null = Wait-Until -Description 'the Set button on the hovered wallpaper' -TimeoutSeconds 3 `
+            -IntervalMilliseconds 200 -Condition { Test-SetButtonShown $Thumbnail }
+        $shown = $true
+    }
+    catch {
+        Write-Problem $_.Exception.Message
+    }
+
+    # Past the overlay's fade-in (0.18 s) before comparing and capturing.
+    Start-Sleep -Milliseconds 300
+    $changed = (Get-RegionHash $rect) -ne $before
+    Write-Step "  hover overlay: Set button shown (UI Automation) = $shown, thumbnail changed on screen = $changed"
+    if (-not $shown -or -not $changed) {
+        throw 'Hovering the first wallpaper did not show its Set button.'
+    }
+}
+
+function Write-UiTree([AutomationElement] $Root, [int] $MaxElements = 300) {
+    Write-Step 'UI Automation tree of the flyout (control type, name, automation id, offscreen):'
+    $walker = [TreeWalker]::ControlViewWalker
+    $count = 0
+    $stack = [System.Collections.Generic.Stack[object]]::new()
+    $stack.Push(@($Root, 0))
+    while ($stack.Count -gt 0 -and $count -lt $MaxElements) {
+        $element, $depth = $stack.Pop()
+        try {
+            $current = $element.Current
+            $type = $current.ControlType.ProgrammaticName -replace '^ControlType\.', ''
+            Write-Host ('    {0}{1} "{2}" id="{3}" offscreen={4}' -f ('  ' * $depth), $type, $current.Name,
+                $current.AutomationId, $current.IsOffscreen)
+            $count++
+            $children = [System.Collections.Generic.List[object]]::new()
+            $child = $walker.GetFirstChild($element)
+            while ($null -ne $child) {
+                $children.Add($child)
+                $child = $walker.GetNextSibling($child)
+            }
+
+            for ($i = $children.Count - 1; $i -ge 0; $i--) {
+                $stack.Push(@($children[$i], ($depth + 1)))
+            }
+        }
+        catch {
+            Write-Host "    (element no longer available: $($_.Exception.Message))"
+        }
+    }
+}
+
+# --- Waiting for content -------------------------------------------------------------------------------------------
+
+function Wait-Feed([int] $TimeoutSeconds = 45) {
+    $null = Wait-Until -Description 'wallpaper thumbnails in the feed' -TimeoutSeconds $TimeoutSeconds -Condition {
+        $window = Get-FlyoutWindow
+        if ($null -eq $window) {
+            return $false
+        }
+
+        return @(Get-Thumbnails $window).Count -ge 1
+    }
+    Write-Step "  thumbnails shown; waiting $SettleSeconds s for the images"
+    Start-Sleep -Seconds $SettleSeconds
+}
+
+function Wait-FeedReload {
+    # A new query empties the list while the first page loads.
+    Start-Sleep -Milliseconds 1500
+    Wait-Feed
+}
+
+# --- Capturing -----------------------------------------------------------------------------------------------------
+
+function Save-ScreenRegion([int] $X, [int] $Y, [int] $Width, [int] $Height, [string] $Path) {
+    $bitmap = [System.Drawing.Bitmap]::new($Width, $Height)
+    try {
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        try {
+            # Plain SourceCopy: CopyFromScreen rejects combined flags such as SourceCopy|CaptureBlt as an undefined enum
+            # value. With desktop composition (always on since Windows 8) the screen copy includes layered windows.
+            $graphics.CopyFromScreen(
+                [System.Drawing.Point]::new($X, $Y),
+                [System.Drawing.Point]::Empty,
+                [System.Drawing.Size]::new($Width, $Height),
+                [System.Drawing.CopyPixelOperation]::SourceCopy)
+        }
+        finally {
+            $graphics.Dispose()
+        }
+
+        $bitmap.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
+    }
+    finally {
+        $bitmap.Dispose()
+    }
+}
+
+function Get-FlyoutRegion([AutomationElement] $Window) {
+    $rect = $Window.Current.BoundingRectangle
+    $screenWidth = [ScreenshotNative]::ScreenWidth
+    $screenHeight = [ScreenshotNative]::ScreenHeight
+    $left = [Math]::Max(0, [int]$rect.X - $CaptureMargin)
+    $top = [Math]::Max(0, [int]$rect.Y - $CaptureMargin)
+    $right = [Math]::Min($screenWidth, [int]($rect.X + $rect.Width) + $CaptureMargin)
+    $bottom = [Math]::Min($screenHeight, [int]($rect.Y + $rect.Height) + $CaptureMargin)
+    return [pscustomobject]@{ X = $left; Y = $top; Width = $right - $left; Height = $bottom - $top }
+}
+
+function Add-Screenshot([string] $State, [string] $Theme, [pscustomobject] $Region) {
+    $name = if ($Theme) { "$State-$($Theme.ToLowerInvariant())" } else { $State }
+    $file = "$name.png"
+    $path = Join-Path $OutputDir $file
+    Save-ScreenRegion $Region.X $Region.Y $Region.Width $Region.Height $path
+    $caption = $Captions[$State]
+    if ($Theme) {
+        $caption = "$caption ($($Theme.ToLowerInvariant()) theme)"
+    }
+
+    $script:Produced.Add([ordered]@{
+            file    = $file
+            state   = $State
+            theme   = if ($Theme) { $Theme.ToLowerInvariant() } else { $null }
+            caption = $caption
+            width   = $Region.Width
+            height  = $Region.Height
+        })
+    Write-Step "  saved $file ($($Region.Width)x$($Region.Height) at $($Region.X),$($Region.Y))"
+}
+
+function Save-Flyout([string] $State, [string] $Theme) {
+    # A dialog that appeared meanwhile would cover the flyout, or hide it by taking the focus (Get-Flyout reopens it).
+    Close-StrayDialogs
+    $window = Get-Flyout
+    Add-Screenshot $State $Theme (Get-FlyoutRegion $window)
+}
+
+function Save-Hero {
+    # In 16:9: the flyout over the wallpaper, above the taskbar and tray, down to the bottom of the screen. The right
+    # edge is the flyout's, which leaves out the system's watermark text at the bottom-right corner of the desktop.
+    Close-StrayDialogs
+    $window = Get-Flyout
+    $rect = $window.Current.BoundingRectangle
+    $screenHeight = [ScreenshotNative]::ScreenHeight
+    $right = [Math]::Min([ScreenshotNative]::ScreenWidth, [int]($rect.X + $rect.Width) + 2)
+    $top = [Math]::Max(0, [int]$rect.Y - 96)
+    $height = $screenHeight - $top
+    $width = [Math]::Min($right, [int]($height * 16 / 9))
+    Add-Screenshot 'hero' $null ([pscustomobject]@{ X = $right - $width; Y = $top; Width = $width; Height = $height })
+}
+
+function Save-Diagnostics([string] $Name) {
+    try {
+        $folder = Join-Path $OutputDir 'diagnostics'
+        New-Item -ItemType Directory -Path $folder -Force | Out-Null
+        $path = Join-Path $folder "debug-$Name.png"
+        Save-ScreenRegion 0 0 ([ScreenshotNative]::ScreenWidth) ([ScreenshotNative]::ScreenHeight) $path
+        Write-Step "  saved diagnostics/debug-$Name.png (full screen)"
+    }
+    catch {
+        Write-Problem "Could not save the diagnostic screenshot: $($_.Exception.Message)"
+    }
+}
+
+function Invoke-State([string] $Name, [scriptblock] $Action) {
+    Write-Step "State $Name"
+    try {
+        & $Action
+    }
+    catch {
+        $script:Failures.Add($Name)
+        Write-Problem "State $Name failed: $($_.Exception.Message)"
+        Write-Host $_.ScriptStackTrace
+        Save-Diagnostics $Name
+        $window = Get-FlyoutWindow
+        if ($null -ne $window) {
+            Write-UiTree $window
+        }
+        else {
+            Write-Step '  the flyout is not visible'
+        }
+    }
+    finally {
+        try {
+            Move-CursorAway
+        }
+        catch {
+            Write-Step "  could not move the cursor: $($_.Exception.Message)"
+        }
+    }
+}
+
+# --- The states ----------------------------------------------------------------------------------------------------
+
+function Select-Genre([string] $Genre) {
+    $chip = Wait-Until -Description "the $Genre genre chip" -Condition {
+        Find-Named (Get-Flyout) ([ControlType]::RadioButton) $Genre
+    }
+    Select-Element $chip
+    Wait-FeedReload
+}
+
+function Submit-Search([string] $Query) {
+    $window = Get-Flyout
+    $box = Wait-Until -Description 'the search box' -Condition {
+        Find-Named (Get-Flyout) ([ControlType]::Edit) $Ui.Search
+    }
+    $handle = [IntPtr]$window.Current.NativeWindowHandle
+
+    # Enter submits the search (the box has no submit button), so the box needs the keyboard focus and the flyout
+    # the foreground: UI Automation focus first, a click on the box if that leaves another window in front.
+    $path = 'UI Automation focus'
+    try {
+        $box.SetFocus()
+    }
+    catch {
+        Write-Step "  SetFocus failed: $($_.Exception.Message)"
+    }
+
+    Start-Sleep -Milliseconds 300
+    if ([ScreenshotNative]::ForegroundWindow() -ne $handle) {
+        $path = 'click on the search box'
+        Invoke-Click $box
+        Move-CursorAway
+        Start-Sleep -Milliseconds 300
+    }
+
+    $value = Get-Pattern $box ([ValuePattern]::Pattern)
+    if ($null -ne $value) {
+        $value.SetValue($Query)
+    }
+    else {
+        [ScreenshotNative]::TypeText($Query)
+    }
+
+    if (-not [ScreenshotNative]::BringToForeground($handle)) {
+        Write-Problem 'The flyout is not in the foreground; Enter may not reach the search box.'
+    }
+
+    Write-Step "  searching for '$Query': Enter after $path"
+    [ScreenshotNative]::PressKey(0x0D)
+    Wait-FeedReload
+}
+
+function Invoke-Theme([string] $Theme) {
+    $suffix = $Theme.ToLowerInvariant()
+    Write-Host "::group::Theme $Theme"
+    try {
+        Stop-App
+        Write-AppSettings $Theme
+        Set-DesktopWallpaper
+        Close-StrayDialogs
+        Move-CursorAway
+        Start-App
+
+        Invoke-State "start-$suffix" {
+            $window = Wait-Until -Description 'the flyout window' -TimeoutSeconds 60 -Condition { Get-FlyoutWindow }
+            $rect = $window.Current.BoundingRectangle
+            Write-Step "  flyout at $rect, handle $($window.Current.NativeWindowHandle)"
+            Wait-Feed
+            if ($Theme -eq 'Dark') {
+                Write-UiTree (Get-Flyout)
+            }
+        }
+
+        # The feed, hero, detail and applied images show the Nature genre: the unfiltered toplist can hold images
+        # unsuitable for a project page.
+        # Without any hover state, so the hero shows the plain feed.
+        Invoke-State "genre-$suffix" {
+            Select-Genre $Ui.Genre
+            Clear-FocusVisuals
+            Save-Flyout 'genre' $Theme
+            if ($Theme -eq 'Dark') {
+                Save-Hero
+            }
+        }
+
+        Invoke-State "feed-$suffix" {
+            # Pointing at the first wallpaper shows its resolution and the quick Set button.
+            Show-HoverOverlay (Get-FirstThumbnail (Get-Flyout))
+            Save-Flyout 'feed' $Theme
+        }
+
+        Invoke-State "detail-$suffix" {
+            Invoke-Element (Get-FirstThumbnail (Get-Flyout))
+            # The feed has no Back button (and its thumbnails hold Set buttons of their own).
+            $null = Wait-Until -Description 'the detail screen' -Condition {
+                Find-Named (Get-Flyout) ([ControlType]::Button) $Ui.Back
+            }
+            try {
+                # The tags arrive with the wallpaper's details, after the screen opens.
+                $null = Wait-Until -Description 'the tags' -TimeoutSeconds 20 -Condition { Find-Text (Get-Flyout) '^#' }
+            }
+            catch {
+                Write-Problem "Detail screen without tags: $($_.Exception.Message)"
+            }
+
+            Start-Sleep -Seconds 2
+            Clear-FocusVisuals
+            Save-Flyout 'detail' $Theme
+        }
+
+        Invoke-State "applied-$suffix" {
+            $button = Find-ButtonWithText (Get-Flyout) $Ui.SetWallpaper
+            if ($null -eq $button) {
+                throw "No '$($Ui.SetWallpaper)' button on the detail screen."
+            }
+
+            Invoke-Element $button
+            # The toast shows for 2.4 s once the original has downloaded and been set.
+            $toast = Wait-Until -Description 'the toast' -TimeoutSeconds 120 -IntervalMilliseconds 100 -Condition {
+                Find-Text (Get-Flyout) "$ToastSuccessPattern|$ToastFailurePattern"
+            }
+            $message = $toast.Current.Name
+            Write-Step "  toast: $message"
+            # Let it fade in (0.18 s).
+            Start-Sleep -Milliseconds 300
+            if ($message -match $ToastSuccessPattern) {
+                Save-Flyout 'applied' $Theme
+            }
+            else {
+                Save-Diagnostics "applied-$suffix-toast"
+                throw "Setting the wallpaper failed: $message"
+            }
+        }
+
+        Invoke-State "search-filters-$suffix" {
+            Show-Feed
+            # Searching selects the All genre, as the app does for every search.
+            Submit-Search $SearchQuery
+
+            $toggle = Find-Named (Get-Flyout) ([ControlType]::Button) $Ui.Filters
+            if ($null -eq $toggle) {
+                throw "No '$($Ui.Filters)' button found."
+            }
+
+            $togglePattern = Get-Pattern $toggle ([TogglePattern]::Pattern)
+            if ($null -ne $togglePattern) {
+                Write-Step "  toggle '$($Ui.Filters)'"
+                $togglePattern.Toggle()
+            }
+            else {
+                Invoke-Click $toggle
+            }
+
+            $chip = Wait-Until -Description 'the filters panel' -TimeoutSeconds 5 -Condition {
+                Find-Named (Get-Flyout) ([ControlType]::RadioButton) $Ui.Resolution
+            }
+            Select-Element $chip
+            Wait-FeedReload
+            Clear-FocusVisuals
+            Save-Flyout 'search-filters' $Theme
+        }
+
+        Invoke-State "settings-$suffix" {
+            Show-Feed
+            $settings = Wait-Until -Description 'the settings button' -Condition {
+                Find-Named (Get-Flyout) ([ControlType]::Button) $Ui.Settings
+            }
+            Invoke-Element $settings
+            $null = Wait-Until -Description 'the settings screen' -Condition {
+                $window = Get-Flyout
+                (Find-Named $window ([ControlType]::Button) $Ui.Back) -and (Find-Text $window "^$($Ui.SettingsHead)$")
+            }
+            # Clear of any toast from the previous states.
+            Start-Sleep -Seconds 3
+            Clear-FocusVisuals
+            Save-Flyout 'settings' $Theme
+        }
+    }
+    finally {
+        Write-AppLog
+        Write-Host '::endgroup::'
+    }
+}
+
+# --- Main ----------------------------------------------------------------------------------------------------------
+
+$AppPath = (Resolve-Path -LiteralPath $AppPath).Path
+New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
+$OutputDir = (Resolve-Path -LiteralPath $OutputDir).Path
+# Only this run's images: a state that fails leaves no outdated picture behind.
+Get-ChildItem -LiteralPath $OutputDir -Filter '*.png' -File | Remove-Item -Force
+$diagnostics = Join-Path $OutputDir 'diagnostics'
+if (Test-Path -LiteralPath $diagnostics) {
+    Remove-Item -LiteralPath $diagnostics -Recurse -Force
+}
+
+Write-Step "App: $AppPath"
+Write-Step "Output: $OutputDir"
+Initialize-Libraries
+Set-ScreenResolution
+Set-DesktopAppearance
+Get-DesktopWallpaper
+Close-StrayDialogs -ListWindows
+
+try {
+    foreach ($theme in 'Dark', 'Light') {
+        Invoke-Theme $theme
+    }
+}
+finally {
+    Stop-App
+}
+
+$manifest = [ordered]@{
+    screen      = [ordered]@{ width = [ScreenshotNative]::ScreenWidth; height = [ScreenshotNative]::ScreenHeight }
+    wallpaper   = $script:WallpaperInfo
+    screenshots = @($script:Produced)
+}
+$manifestPath = Join-Path $OutputDir 'manifest.json'
+[System.IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 5) + "`n")
+Write-Step "Wrote $manifestPath"
+
+Write-Step "Screenshots: $($script:Produced.Count); failed states: $($script:Failures.Count)"
+foreach ($failure in $script:Failures) {
+    Write-Step "  failed: $failure"
+}
+
+if ($script:Produced.Count -eq 0) {
+    Write-Host '::error::No screenshot was produced.'
+    exit 1
+}

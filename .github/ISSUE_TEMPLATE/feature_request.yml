@@ -1,0 +1,36 @@
+name: Feature request
+description: Propose a change or addition.
+title: "[Feature]: "
+labels: [enhancement, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Salt.er is intentionally small. Please read the non-goals in the README before filing.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should Salt.er do?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+  - type: checkboxes
+    id: non-goals
+    attributes:
+      label: Checks
+      options:
+        - label: I have read the non-goals in README.
+          required: true

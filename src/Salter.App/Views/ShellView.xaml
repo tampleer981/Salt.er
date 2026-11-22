@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The flyout's content: the glass surface (fill over the window's acrylic, sheen, top highlight and hairline border,
+  rounded 16 px), the screen being shown and the toast above every screen.
+-->
+<UserControl
+    x:Class="Salter.App.Views.ShellView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Salter.App.Views">
+
+  <Border
+      x:Name="Glass"
+      Background="{ThemeResource GlassFillBrush}"
+      BorderBrush="{ThemeResource GlassBorderBrush}"
+      BorderThickness="1"
+      CornerRadius="16">
+    <Grid>
+      <Border Background="{ThemeResource GlassSheenBrush}" CornerRadius="15" IsHitTestVisible="False" />
+      <Rectangle
+          Height="1"
+          Margin="14,0"
+          VerticalAlignment="Top"
+          Fill="{ThemeResource GlassHighlightBrush}"
+          IsHitTestVisible="False" />
+
+      <!-- The feed, detail and settings screens; code-behind shows one at a time. -->
+      <Grid x:Name="Pages" />
+
+      <!-- Toast: 32 px pill along the bottom, clear of the refresh button on the left. -->
+      <Border
+          Height="32"
+          Margin="64,0,14,18"
+          Padding="12,0"
+          VerticalAlignment="Bottom"
+          Background="{ThemeResource FloatingGlassBrush}"
+          BorderBrush="{ThemeResource FloatingBorderBrush}"
+          BorderThickness="1"
+          CornerRadius="16"
+          IsHitTestVisible="False"
+          Opacity="{x:Bind local:ShellView.ToastOpacity(Shell.Toast.IsVisible), Mode=OneWay}">
+        <Border.OpacityTransition>
+          <ScalarTransition Duration="0:0:0.18" />
+        </Border.OpacityTransition>
+        <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
+          <FontIcon
+              FontSize="12"
+              Foreground="{ThemeResource SuccessBrush}"
+              Glyph="&#xE73E;"
+              Visibility="{x:Bind local:ShellView.SuccessVisibility(Shell.Toast.Kind), Mode=OneWay}" />
+          <FontIcon
+              FontSize="12"
+              Foreground="{ThemeResource ErrorBrush}"
+              Glyph="&#xE783;"
+              Visibility="{x:Bind local:ShellView.ErrorVisibility(Shell.Toast.Kind), Mode=OneWay}" />
+          <TextBlock
+              x:Name="ToastText"
+              VerticalAlignment="Center"
+              AutomationProperties.LiveSetting="Polite"
+              FontSize="12"
+              FontWeight="Medium"
+              Foreground="{ThemeResource FloatingTextBrush}"
+              Text="{x:Bind Shell.Toast.Message, Mode=OneWay}"
+              TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Border>
+</UserControl>

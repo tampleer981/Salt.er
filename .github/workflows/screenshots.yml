@@ -1,0 +1,97 @@
+name: Screenshots
+
+# Captures real screenshots of the app for the documentation and commits them to the branch the run is for.
+# Runs on demand, and on pushes that change the capture tooling (never on main).
+on:
+  workflow_dispatch:
+  push:
+    branches-ignore: [main]
+    paths:
+      - tools/screenshots/**
+      - .github/workflows/screenshots.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  capture:
+    name: Capture screenshots
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      # Commits the screenshots back to the branch.
+      contents: write
+    steps:
+      # The branch itself rather than the commit, so the screenshots can be committed on top of it.
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref }}
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Publish the app
+        run: >
+          dotnet publish src/Salter.App/Salter.App.csproj -c Release -r win-x64 --self-contained
+          -p:Platform=x64 -o artifacts/screenshot-app
+
+      # XAML pages load through the project PRI (ms-appx:///... -> Files/...); without it no page can load.
+      - name: Check the published XAML resources
+        shell: pwsh
+        run: |
+          $pri = Join-Path 'artifacts/screenshot-app' 'Salter.App.pri'
+          if (-not (Test-Path -LiteralPath $pri)) {
+            Write-Host '::error::Salter.App.pri is missing from the published app; no XAML page can load.'
+            exit 1
+          }
+
+      # The script also switches the display to 1920x1080 when the runner's display allows it.
+      - name: Capture screenshots
+        shell: pwsh
+        # Names any missing XAML resource or failed binding in the app log the script prints on failure.
+        env:
+          SALTER_XAML_TRACE: '1'
+        run: >
+          ./tools/screenshots/Capture-Screenshots.ps1
+          -AppPath artifacts/screenshot-app/Salter.App.exe
+          -OutputDir docs/assets/screenshots
+
+      - name: Upload screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: docs/assets/screenshots
+          if-no-files-found: warn
+          retention-days: 7
+
+      # Also after a failed capture: the diagnostics folder holds full-screen images of the failed states.
+      - name: Commit screenshots
+        if: ${{ !cancelled() && github.ref != 'refs/heads/main' && startsWith(github.ref, 'refs/heads/') }}
+        shell: pwsh
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898729+github-actions[bot]@users.noreply.github.com'
+          git add --all -- docs/assets/screenshots
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host 'Screenshots unchanged; nothing to commit.'
+            exit 0
+          }
+
+          git commit -m 'docs: update screenshots'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # The branch may have moved on while the screenshots were being captured.
+          git pull --rebase origin $env:GITHUB_REF_NAME
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git push origin "HEAD:$env:GITHUB_REF_NAME"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

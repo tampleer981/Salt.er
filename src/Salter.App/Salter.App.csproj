@@ -1,0 +1,89 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <RootNamespace>Salter.App</RootNamespace>
+    <AssemblyName>Salter.App</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+    <Platforms>x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+    <!-- Program.Main replaces the generated entry point so it can enforce a single instance first. -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <!-- Required by the LibraryImport source generator. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- An executable without public API; the src-wide XML documentation requirement does not apply. -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!--
+      Keep line numbers in the compiled XAML of release builds too, so a XAML parse error names the line and position
+      instead of only "XAML parsing failed". The x:Bind diagnostics hooks that would come with it stay off.
+    -->
+    <DisableXbfLineInfo>false</DisableXbfLineInfo>
+    <EnableXBindDiagnostics>false</EnableXBindDiagnostics>
+  </PropertyGroup>
+
+  <!--
+    Self-contained builds need a runtime identifier; derive it from the platform chosen in the IDE, and default to
+    win-x64 when no platform is given (plain `dotnet build`).
+  -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == ''">
+    <RuntimeIdentifier Condition="'$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(Platform)' == 'x64' or '$(Platform)' == '' or '$(Platform)' == 'AnyCPU' or '$(Platform)' == 'Any CPU'">win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <!-- Assets are content by default; the tray icon is also read from the app folder at run time. -->
+  <ItemGroup>
+    <Content Update="Assets\TrayIcon.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="H.NotifyIcon.WinUI" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Serilog.Extensions.Logging" />
+    <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="Velopack" />
+  </ItemGroup>
+
+  <!--
+    The project PRI (Salter.App.pri) indexes every XAML page, and in release builds it also embeds their compiled XBF.
+    Application.LoadComponent resolves ms-appx:///... through it, so without it no window or view can load. The build
+    writes it next to the executable, but the .NET SDK does not publish it. The Windows SDK build tools add it to the
+    publish output only in their MSIX tooling, which is off here (EnableMsixTooling=false), so this target does the
+    same. Builds that do not embed the XBF (Debug) also need the loose .xbf files.
+  -->
+  <Target Name="PublishProjectPriAndXbf" AfterTargets="ComputeResolvedFilesToPublishList" DependsOnTargets="Prep_ComputeProcessXamlFiles" Condition="'$(CopyBuildOutputToPublishDirectory)' != 'false'">
+    <ItemGroup>
+      <!-- Replaces any entry for the same file, so a publish never gets two (NETSDK1152). -->
+      <_SalterPublishedPri Include="@(ResolvedFileToPublish->WithMetadataValue('RelativePath', '$(ProjectPriFileName)'))" />
+      <ResolvedFileToPublish Remove="@(_SalterPublishedPri)" />
+      <ResolvedFileToPublish Include="$(ProjectPriFullPath)" RelativePath="$(ProjectPriFileName)" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(DisableEmbeddedXbf)' == 'true'">
+      <_SalterLooseXbf Include="@(GeneratedXamlDest->WithMetadataValue('Extension', '.xbf')->'%(FullPath)')" />
+      <_SalterLooseXbf>
+        <RelativePath>$([MSBuild]::MakeRelative('$(TargetDir)', '%(FullPath)'))</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </_SalterLooseXbf>
+      <ResolvedFileToPublish Include="@(_SalterLooseXbf)" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Salter.Core\Salter.Core.csproj" />
+    <ProjectReference Include="..\Salter.Presentation\Salter.Presentation.csproj" />
+  </ItemGroup>
+
+</Project>
