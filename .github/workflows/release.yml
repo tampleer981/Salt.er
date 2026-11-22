@@ -1,9 +1,13 @@
 name: Release
 
-# A tag vX.Y.Z publishes a GitHub release. A manual run only builds the release files (a dry run): it never
-# publishes, whatever version is given.
+# Releases are driven by CHANGELOG.md. When main gains a "## [x.y.z] - date" section that has no tag yet, this
+# workflow tests, packages, tags vX.Y.Z on that commit and publishes the GitHub release with the section as notes.
+# Pushing a vX.Y.Z tag by hand still works and publishes that tag. A manual run only builds the release files
+# (a dry run): it never tags or publishes, whatever version is given.
 on:
   push:
+    branches: [main]
+    paths: ['CHANGELOG.md', '.github/workflows/release.yml']
     tags: ['v*.*.*']
   workflow_dispatch:
     inputs:
@@ -16,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 env:
@@ -24,8 +28,84 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      publish: ${{ steps.plan.outputs.publish }}
+      create-tag: ${{ steps.plan.outputs.create-tag }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Decide what to release
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          semver='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
+          version=''
+          publish=false
+          create_tag=false
+          if [ "$EVENT" = workflow_dispatch ]; then
+            version="$INPUT_VERSION"
+          elif [ "$REF_TYPE" = tag ]; then
+            version="${REF_NAME#v}"
+            publish=true
+          else
+            # The newest released section is the first "## [x.y.z]" heading below [Unreleased].
+            version=$(grep -m1 -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?\]' CHANGELOG.md | sed -E 's/^## \[(.*)\]$/\1/' || true)
+            if [ -z "$version" ]; then
+              echo "No released section in CHANGELOG.md; nothing to release."
+            elif git rev-parse -q --verify "refs/tags/v$version" > /dev/null; then
+              echo "v$version is already tagged; nothing to release."
+              version=''
+            else
+              publish=true
+              create_tag=true
+            fi
+          fi
+          if [ -n "$version" ] && [[ ! "$version" =~ $semver ]]; then
+            echo "::error::$version is not a semantic version."
+            exit 1
+          fi
+          {
+            echo "version=$version"
+            echo "publish=$publish"
+            echo "create-tag=$create_tag"
+          } >> "$GITHUB_OUTPUT"
+          echo "version=$version publish=$publish create-tag=$create_tag"
+
+  test:
+    name: Test
+    needs: plan
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Test
+        run: dotnet test --solution Salt.er.Portable.slnf -c Release
+
   pack:
     name: Pack (${{ matrix.arch }})
+    needs: [plan, test]
+    # Runs for a release, and for a manual dry run (where the test job is skipped).
+    if: >-
+      !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.version != '' &&
+      (needs.test.result == 'success' || (github.event_name == 'workflow_dispatch' && needs.test.result == 'skipped'))
     runs-on: windows-latest
     timeout-minutes: 30
     strategy:
@@ -42,10 +122,9 @@ jobs:
       - name: Build and package
         shell: pwsh
         env:
-          # A tag push packages the tag's version; a manual run packages the input.
-          VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
+          VERSION: ${{ needs.plan.outputs.version }}
           ARCH: ${{ matrix.arch }}
-        run: ./build/pack.ps1 -Version ($env:VERSION -replace '^v', '') -Arch $env:ARCH
+        run: ./build/pack.ps1 -Version $env:VERSION -Arch $env:ARCH
 
       - name: Upload release files
         uses: actions/upload-artifact@v4
@@ -57,14 +136,14 @@ jobs:
 
   release:
     name: Publish release
-    needs: pack
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [plan, pack]
+    if: needs.plan.outputs.publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: write
     env:
-      TAG: ${{ github.ref_name }}
+      TAG: v${{ needs.plan.outputs.version }}
     steps:
       - uses: actions/checkout@v5
 
@@ -110,6 +189,15 @@ jobs:
             exit 1
           fi
           cat notes.md
+
+      - name: Tag the release commit
+        if: needs.plan.outputs.create-tag == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # The commit that added the CHANGELOG section.
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
 
       - name: Create release
         env:

@@ -17,17 +17,16 @@ apps update to stable releases only.
    it, and add comparison links if the file has them. The release workflow
    fails if the section for the tag is missing or empty; its body becomes the
    release notes.
-3. Commit as `chore: release x.y.z` and push to `main`.
-4. Tag and push:
+3. Commit as `docs: release x.y.z` and push to `main`.
 
-   ```powershell
-   git tag vx.y.z
-   git push origin vx.y.z
-   ```
+That is all: the release workflow sees a `## [x.y.z]` section with no `vx.y.z`
+tag, tests and packages that commit, creates the tag and publishes the release.
+Pushing a `vx.y.z` tag by hand still works as an alternative.
 
 ## What the release workflow does
 
-`.github/workflows/release.yml` runs on `v*.*.*` tags.
+`.github/workflows/release.yml` runs when `CHANGELOG.md` changes on `main`
+(publishing only a version that has no tag yet) and on `v*.*.*` tags.
 
 1. **Pack** runs `build/pack.ps1` on a Windows runner for x64 and ARM64: a
    self-contained publish, the portable ZIP, the Velopack installer and update
