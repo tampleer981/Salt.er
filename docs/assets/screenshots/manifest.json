@@ -45,7 +45,7 @@
       "file": "search-filters-dark.png",
       "state": "search-filters",
       "theme": "dark",
-      "caption": "Searching for \"mountains\" (all genres) with the filters panel open and the 4K+ resolution chosen. (dark theme)",
+      "caption": "Searching for \"mountains\" (all genres) with the filters panel open, the 4K+ resolution chosen and the people tag excluded. (dark theme)",
       "width": 400,
       "height": 692
     },
@@ -85,7 +85,7 @@
       "file": "search-filters-light.png",
       "state": "search-filters",
       "theme": "light",
-      "caption": "Searching for \"mountains\" (all genres) with the filters panel open and the 4K+ resolution chosen. (light theme)",
+      "caption": "Searching for \"mountains\" (all genres) with the filters panel open, the 4K+ resolution chosen and the people tag excluded. (light theme)",
       "width": 400,
       "height": 692
     },
