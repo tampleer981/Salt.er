@@ -579,8 +579,15 @@
               </VisualStateGroup>
             </VisualStateManager.VisualStateGroups>
             <Ellipse x:Name="HoverOverlay" Fill="White" Opacity="0" />
-            <!-- Inner highlight along the top edge. -->
-            <Rectangle Width="20" Height="1" VerticalAlignment="Top" Fill="{ThemeResource FloatingHighlightBrush}" />
+            <!--
+              Inner highlight along the top of the rim. It follows the curve: children are not clipped to the corner
+              radius, so a straight line here would stick out of the circle as a short sliver above the button.
+            -->
+            <Border
+                BorderBrush="{ThemeResource FloatingHighlightBrush}"
+                BorderThickness="0,1,0,0"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                IsHitTestVisible="False" />
             <ContentPresenter
                 x:Name="Presenter"
                 HorizontalAlignment="Center"
