@@ -286,55 +286,151 @@ public class FeedViewModelTests
     }
 
     [Fact]
-    public async Task Refresh_on_a_sorted_feed_starts_from_another_of_the_first_ten_pages()
+    public async Task Refresh_on_a_sorted_feed_loads_its_first_pages_in_a_random_order()
     {
         var vm = CreateViewModel();
-        (int Pages, int Current)? asked = null;
-        vm.PickRefreshPage = (pages, current) =>
+        int? asked = null;
+        vm.ShufflePages = count =>
         {
-            asked = (pages, current);
-            return 7;
+            asked = count;
+            return [3, 1, 2];
         };
-        _client.Enqueue(Page(1, 40, "a"));
+        _client.Enqueue(Page(1, 3, "a"));
         await vm.LoadCommand.ExecuteAsync(null);
-        _client.Enqueue(Page(7, 40, "b"));
-        _client.Enqueue(Page(8, 40, "c"));
+        _client.Enqueue(Page(3, 3, "c"));
+        _client.Enqueue(Page(1, 3, "a"));
+        _client.Enqueue(Page(2, 3, "b"));
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+
+        Assert.Equal(3, asked);
+        Assert.Equal([1, 3, 1, 2], _client.Queries.Select(q => q.Page));
+        Assert.Equal(["c", "a", "b"], vm.Items.Select(i => i.Id));
+        Assert.Equal(Sorting.Toplist, _client.Queries[^1].Sorting);
+    }
+
+    [Fact]
+    public async Task Refresh_shuffles_at_most_the_first_twenty_pages()
+    {
+        var vm = CreateViewModel();
+        int? asked = null;
+        vm.ShufflePages = count =>
+        {
+            asked = count;
+            return [1];
+        };
+        _client.Enqueue(Page(1, 400, "a"));
+        await vm.LoadCommand.ExecuteAsync(null);
+        _client.Enqueue(Page(1, 400, "b"));
 
         await vm.RefreshCommand.ExecuteAsync(null);
         await vm.LoadMoreCommand.ExecuteAsync(null);
 
-        Assert.Equal((FeedViewModel.MaxRefreshPage, 1), asked);
-        Assert.Equal([1, 7, 8], _client.Queries.Select(q => q.Page));
-        Assert.Equal(["b", "c"], vm.Items.Select(i => i.Id));
-    }
-
-    [Fact]
-    public async Task Refresh_of_a_single_page_feed_reloads_page_one()
-    {
-        var vm = CreateViewModel();
-        vm.PickRefreshPage = (_, _) => throw new InvalidOperationException("Not expected for a one-page feed.");
-        _client.Enqueue(Page(1, 1, "a"));
-        await vm.LoadCommand.ExecuteAsync(null);
-        _client.Enqueue(Page(1, 1, "b"));
-
-        await vm.RefreshCommand.ExecuteAsync(null);
-
+        Assert.Equal(FeedViewModel.MaxShufflePages, asked);
+        // The order is exhausted, so no further page is requested even though the server has more.
         Assert.Equal([1, 1], _client.Queries.Select(q => q.Page));
     }
 
     [Fact]
-    public void Default_refresh_page_picker_never_repeats_the_current_page()
+    public async Task Refresh_shuffles_the_wallpapers_of_each_page()
     {
         var vm = CreateViewModel();
-        vm.PickRefreshPage = new FeedViewModel(
-            _client, new FeedRequestFactory(() => null), _settings, _apiKey, _localizer).PickRefreshPage;
+        var shuffled = new List<string[]>();
+        vm.ShuffleItems = items =>
+        {
+            shuffled.Add([.. items.Select(i => i.Id)]);
+            var reversed = items.Reverse().ToList();
+            for (var i = 0; i < items.Count; i++)
+            {
+                items[i] = reversed[i];
+            }
+        };
+        _client.Enqueue(Page(1, 2, "a", "b"));
+        await vm.LoadCommand.ExecuteAsync(null);
+        Assert.Empty(shuffled);
+        _client.Enqueue(Page(1, 2, "a", "b", "c"));
+        _client.Enqueue(Page(2, 2, "c", "d", "e"));
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+
+        Assert.Equal([["a", "b", "c"], ["c", "d", "e"]], shuffled);
+        // Shuffled, and still without duplicates.
+        Assert.Equal(["c", "b", "a", "e", "d"], vm.Items.Select(i => i.Id));
+    }
+
+    [Fact]
+    public async Task An_ordinary_reload_after_a_shuffle_returns_to_the_ordered_feed()
+    {
+        var vm = CreateViewModel();
+        vm.ShufflePages = _ => [2, 1];
+        vm.ShuffleItems = items => items.Clear();
+        _client.Enqueue(Page(1, 2, "a"));
+        await vm.LoadCommand.ExecuteAsync(null);
+        _client.Enqueue(Page(2, 2, "b"));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        _client.Enqueue(Page(1, 2, "c"));
+        _client.Enqueue(Page(2, 2, "d"));
+
+        vm.SelectSortingCommand.Execute(Sorting.Latest);
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+
+        Assert.Equal([1, 2, 1, 2], _client.Queries.Select(q => q.Page));
+        Assert.Equal(["c", "d"], vm.Items.Select(i => i.Id));
+    }
+
+    [Fact]
+    public async Task Refresh_before_any_page_loaded_reloads_in_order()
+    {
+        var vm = CreateViewModel();
+        vm.ShufflePages = _ => throw new InvalidOperationException("Not expected before a page has loaded.");
+        _client.EnqueueFailure(new WallhavenException(WallhavenErrorKind.Network, "offline"));
+        await vm.LoadCommand.ExecuteAsync(null);
+        _client.Enqueue(Page(1, 2, "a"));
+        _client.Enqueue(Page(2, 2, "b"));
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+
+        Assert.Equal([1, 1, 2], _client.Queries.Select(q => q.Page));
+    }
+
+    [Fact]
+    public void Default_page_shuffle_covers_each_page_once()
+    {
+        var shuffle = new FeedViewModel(_client, new FeedRequestFactory(() => null), _settings, _apiKey, _localizer).ShufflePages;
+        var firsts = new HashSet<int>();
 
         for (var i = 0; i < 200; i++)
         {
-            var page = vm.PickRefreshPage(3, 2);
-            Assert.InRange(page, 1, 3);
-            Assert.NotEqual(2, page);
+            var order = shuffle(FeedViewModel.MaxShufflePages);
+            Assert.Equal(Enumerable.Range(1, FeedViewModel.MaxShufflePages), order.Order());
+            firsts.Add(order[0]);
         }
+
+        Assert.True(firsts.Count > 1, "The order never changed.");
+        Assert.Equal([1], shuffle(1));
+    }
+
+    [Fact]
+    public void Default_item_shuffle_keeps_every_item()
+    {
+        var shuffle = new FeedViewModel(_client, new FeedRequestFactory(() => null), _settings, _apiKey, _localizer).ShuffleItems;
+        var ids = Enumerable.Range(0, 24).Select(i => "w" + i).ToArray();
+        var orders = new HashSet<string>();
+
+        for (var i = 0; i < 50; i++)
+        {
+            var items = ids.Select(Wallpaper).ToList();
+            shuffle(items);
+            Assert.Equal(ids.Order(), items.Select(w => w.Id).Order());
+            orders.Add(string.Join(',', items.Select(w => w.Id)));
+        }
+
+        Assert.True(orders.Count > 1, "The order never changed.");
     }
 
     [Fact]
@@ -354,6 +450,21 @@ public class FeedViewModelTests
         Assert.Equal([1, 2, 1, 2], _client.Queries.Select(q => q.Page));
         Assert.Equal([null, "abc123", null, "xyz789"], _client.Queries.Select(q => q.Seed));
         Assert.Equal(["c", "d"], vm.Items.Select(i => i.Id));
+    }
+
+    [Fact]
+    public async Task Random_sorting_also_shuffles_each_page()
+    {
+        var vm = CreateViewModel();
+        var shuffles = 0;
+        vm.ShuffleItems = _ => shuffles++;
+        _client.Enqueue(SeededPage(1, 3, "abc123", "a"));
+        vm.SelectSortingCommand.Execute(Sorting.Random);
+        _client.Enqueue(SeededPage(2, 3, "abc123", "b"));
+
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+
+        Assert.Equal(2, shuffles);
     }
 
     [Fact]
@@ -855,8 +966,9 @@ public class FeedViewModelTests
     private FeedViewModel CreateViewModel() =>
         new(_client, new FeedRequestFactory(() => (1920, 1080)), _settings, _apiKey, _localizer)
         {
-            // Deterministic: a refresh of a sorted feed starts from page 1 unless a test says otherwise.
-            PickRefreshPage = (_, _) => 1,
+            // Deterministic: pages and wallpapers keep their order unless a test says otherwise.
+            ShufflePages = count => [.. Enumerable.Range(1, count)],
+            ShuffleItems = _ => { },
         };
 
     private static SearchPage Page(int current, int last, params string[] ids) =>

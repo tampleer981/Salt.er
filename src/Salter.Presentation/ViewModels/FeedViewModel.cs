@@ -19,8 +19,8 @@ namespace Salter.Presentation.ViewModels;
 /// </remarks>
 public sealed partial class FeedViewModel : ObservableObject
 {
-    /// <summary>How many leading pages of a sorted feed <see cref="RefreshCommand"/> picks from.</summary>
-    public const int MaxRefreshPage = 10;
+    /// <summary>How many leading pages of a sorted feed <see cref="RefreshCommand"/> shuffles.</summary>
+    public const int MaxShufflePages = 20;
 
     private static readonly Sorting[] SortingOrder = [Sorting.Toplist, Sorting.Latest, Sorting.Hot, Sorting.Random];
 
@@ -179,31 +179,51 @@ public sealed partial class FeedViewModel : ObservableObject
     public partial bool LoadMoreFailed { get; private set; }
 
     /// <summary>
-    /// Picks the page a refresh starts from: a page in 1..<c>pages</c> other than <c>current</c>.
+    /// Returns a random order of the pages 1..<c>count</c>, each exactly once, for a shuffled refresh.
     /// Replaceable so tests are deterministic.
     /// </summary>
-    internal Func<int, int, int> PickRefreshPage { get; set; } = static (pages, current) =>
+    internal Func<int, IReadOnlyList<int>> ShufflePages { get; set; } = static count =>
     {
-        var page = RandomNumberGenerator.GetInt32(1, pages);
-        return page >= current ? page + 1 : page;
+        var pages = Enumerable.Range(1, count).ToArray();
+        Shuffle(pages);
+        return pages;
     };
+
+    /// <summary>
+    /// Puts the wallpapers of one page in a random order before they are shown, in a shuffled refresh and with
+    /// <see cref="Sorting.Random"/>. Replaceable so tests are deterministic.
+    /// </summary>
+    internal Action<IList<WallpaperSummary>> ShuffleItems { get; set; } = static items => Shuffle(items);
+
+    /// <summary>Shuffles a list in place (Fisher–Yates) with a cryptographically strong generator.</summary>
+    /// <typeparam name="T">The element type.</typeparam>
+    /// <param name="list">The list to shuffle.</param>
+    internal static void Shuffle<T>(IList<T> list)
+    {
+        for (var i = list.Count - 1; i > 0; i--)
+        {
+            var j = RandomNumberGenerator.GetInt32(i + 1);
+            (list[i], list[j]) = (list[j], list[i]);
+        }
+    }
 
     /// <summary>Starts a new query for the current selection.</summary>
     [RelayCommand(AllowConcurrentExecutions = true)]
     private Task LoadAsync() => ReloadAsync();
 
     /// <summary>
-    /// Shows a fresh set of wallpapers for the current selection: <see cref="Sorting.Random"/> starts over with a
-    /// new seed, any other sorting jumps to another of its first <see cref="MaxRefreshPage"/> pages.
+    /// Shows the current selection in a new random order. <see cref="Sorting.Random"/> starts over with a new seed.
+    /// Any other sorting shuffles its first pages (up to <see cref="MaxShufflePages"/>, as far as the last query
+    /// reported): they load in a random order as the list scrolls, each once, and the wallpapers of each page are
+    /// shuffled too. Before any page has loaded it reloads in the usual order.
     /// </summary>
     [RelayCommand(AllowConcurrentExecutions = true)]
     private Task RefreshAsync()
     {
         var previous = _current;
-        var pages = previous is null || previous.Sorting == Sorting.Random
-            ? 1
-            : Math.Min(previous.LastPage, MaxRefreshPage);
-        return ReloadAsync(pages > 1 ? PickRefreshPage(pages, previous!.StartPage) : 1);
+        return previous is null || previous.Sorting == Sorting.Random || previous.LastPage < 1
+            ? ReloadAsync()
+            : ReloadAsync(ShufflePages(Math.Min(previous.LastPage, MaxShufflePages)));
     }
 
     /// <summary>Searches for <see cref="SearchText"/>, or shows the current genre when the text is blank.</summary>
@@ -240,7 +260,7 @@ public sealed partial class FeedViewModel : ObservableObject
 
         generation.PageInFlight = true;
         IsLoadingMore = true;
-        var page = generation.CurrentPage + 1;
+        var page = generation.NextPage;
         try
         {
             var result = await _client.SearchAsync(Query(generation, page), generation.Token);
@@ -476,7 +496,8 @@ public sealed partial class FeedViewModel : ObservableObject
     // unexpected failures on the UI context the same way an async command would.
     private async void BeginReload() => await ReloadAsync();
 
-    private async Task ReloadAsync(int startPage = 1)
+    // Without a page order the query is the ordinary one, page after page; with one it is a shuffled refresh.
+    private async Task ReloadAsync(IReadOnlyList<int>? pageOrder = null)
     {
         _current?.Cancel();
         var generation = new QueryGeneration(
@@ -486,7 +507,7 @@ public sealed partial class FeedViewModel : ObservableObject
             Filters,
             [.. ExcludedTags],
             CurrentPurity(),
-            startPage);
+            pageOrder);
         _current = generation;
 
         Items.Clear();
@@ -496,6 +517,7 @@ public sealed partial class FeedViewModel : ObservableObject
         LoadMoreFailed = false;
         State = FeedState.Loading;
 
+        var startPage = generation.NextPage;
         SearchPage result;
         try
         {
@@ -543,7 +565,15 @@ public sealed partial class FeedViewModel : ObservableObject
 
     private void Accept(QueryGeneration generation, SearchPage result, int page)
     {
-        foreach (var item in result.Items)
+        IEnumerable<WallpaperSummary> items = result.Items;
+        if (generation.PageOrder is not null || generation.Sorting == Sorting.Random)
+        {
+            var shuffled = result.Items.ToList();
+            ShuffleItems(shuffled);
+            items = shuffled;
+        }
+
+        foreach (var item in items)
         {
             if (_ids.Add(item.Id))
             {
@@ -552,7 +582,9 @@ public sealed partial class FeedViewModel : ObservableObject
         }
 
         generation.CurrentPage = page;
-        generation.HasMore = result.HasMore;
+        generation.PagesLoaded++;
+        // A shuffled refresh ends with its last page; the ordinary query when the server says so.
+        generation.HasMore = generation.PageOrder is { } order ? generation.PagesLoaded < order.Count : result.HasMore;
         generation.LastPage = Math.Max(generation.LastPage, result.LastPage);
         generation.Seed = result.Seed ?? generation.Seed;
     }
@@ -581,9 +613,9 @@ public sealed partial class FeedViewModel : ObservableObject
             FeedFilters filters,
             IReadOnlyList<string> excludedTags,
             Purity purity,
-            int startPage)
+            IReadOnlyList<int>? pageOrder)
         {
-            StartPage = startPage;
+            PageOrder = pageOrder is { Count: > 0 } ? pageOrder : null;
             Genre = genre;
             SearchText = searchText;
             Sorting = sorting;
@@ -611,10 +643,18 @@ public sealed partial class FeedViewModel : ObservableObject
         /// <summary>The random seed returned by the server; <see langword="null"/> until page 1 arrives.</summary>
         public string? Seed { get; set; }
 
-        /// <summary>The page this query started from; refreshing a sorted feed starts from another page.</summary>
-        public int StartPage { get; }
+        /// <summary>
+        /// The order a shuffled refresh loads its pages in, or <see langword="null"/> for the ordinary page order.
+        /// </summary>
+        public IReadOnlyList<int>? PageOrder { get; }
 
         public int CurrentPage { get; set; }
+
+        /// <summary>How many pages have been accepted.</summary>
+        public int PagesLoaded { get; set; }
+
+        /// <summary>The page to request next: the next of <see cref="PageOrder"/>, or the one after the current.</summary>
+        public int NextPage => PageOrder is { } order ? order[Math.Min(PagesLoaded, order.Count - 1)] : CurrentPage + 1;
 
         /// <summary>The last page the server reported for this query.</summary>
         public int LastPage { get; set; }
