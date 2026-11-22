@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   The flyout's content: the glass surface (fill over the window's acrylic, sheen, top highlight and hairline border,
-  rounded 16 px), the screen being shown and the toast above every screen.
+  rounded 8 px like the Windows 11 window itself, so no plain acrylic shows in the corners), the screen being shown and
+  the toast above every screen.
 -->
 <UserControl
     x:Class="Salter.App.Views.ShellView"
@@ -14,9 +15,9 @@
       Background="{ThemeResource GlassFillBrush}"
       BorderBrush="{ThemeResource GlassBorderBrush}"
       BorderThickness="1"
-      CornerRadius="16">
+      CornerRadius="8">
     <Grid>
-      <Border Background="{ThemeResource GlassSheenBrush}" CornerRadius="15" IsHitTestVisible="False" />
+      <Border Background="{ThemeResource GlassSheenBrush}" CornerRadius="7" IsHitTestVisible="False" />
       <Rectangle
           Height="1"
           Margin="14,0"

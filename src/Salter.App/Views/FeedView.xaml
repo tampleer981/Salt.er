@@ -69,7 +69,7 @@
         Background="{ThemeResource FieldBrush}"
         BorderBrush="{ThemeResource GlassBorderBrush}"
         BorderThickness="1"
-        CornerRadius="12">
+        CornerRadius="8">
       <Grid ColumnSpacing="8">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto" />
@@ -117,7 +117,7 @@
             VerticalAlignment="Center"
             BorderBrush="{ThemeResource GlassBorderBrush}"
             BorderThickness="1"
-            CornerRadius="5">
+            CornerRadius="4">
           <TextBlock
               FontSize="11"
               Foreground="{ThemeResource TextSecondaryBrush}"
@@ -134,7 +134,7 @@
         Background="{ThemeResource FieldBrush}"
         BorderBrush="{ThemeResource GlassBorderBrush}"
         BorderThickness="1"
-        CornerRadius="12"
+        CornerRadius="8"
         Visibility="{x:Bind Feed.FiltersOpen, Mode=OneWay}">
       <Grid ColumnSpacing="10" RowSpacing="10">
         <Grid.ColumnDefinitions>

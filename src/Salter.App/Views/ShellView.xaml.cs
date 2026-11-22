@@ -16,7 +16,8 @@ namespace Salter.App.Views;
 /// </summary>
 public sealed partial class ShellView : UserControl
 {
-    private const float GlassCornerRadius = 16;
+    // The radius Windows 11 rounds the window with; a larger one would leave plain acrylic showing in the corners.
+    private const float GlassCornerRadius = 8;
     private static readonly TimeSpan FadeDuration = TimeSpan.FromMilliseconds(150);
 
     private readonly FeedView _feed;

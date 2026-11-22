@@ -52,12 +52,12 @@
     <ScrollViewer Grid.Row="1" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Hidden">
       <StackPanel Padding="14,0,14,14">
         <!-- The image is the frame's background, so the rounded corners clip it. -->
-        <Border Height="194" Background="{ThemeResource ChipBrush}" CornerRadius="12">
+        <Border Height="194" Background="{ThemeResource ChipBrush}" CornerRadius="8">
           <Border
               x:Name="Preview"
               BorderBrush="{ThemeResource PreviewBorderBrush}"
               BorderThickness="1"
-              CornerRadius="12" />
+              CornerRadius="8" />
         </Border>
 
         <ItemsControl Margin="0,14,0,0" IsTabStop="False" ItemsSource="{x:Bind Detail.Tags, Mode=OneWay}">
@@ -83,7 +83,7 @@
               Background="{ThemeResource FieldBrush}"
               BorderBrush="{ThemeResource GlassBorderBrush}"
               BorderThickness="1"
-              CornerRadius="12">
+              CornerRadius="8">
             <ItemsRepeater ItemsSource="{x:Bind Detail.Targets, Mode=OneWay}">
               <ItemsRepeater.Layout>
                 <UniformGridLayout
