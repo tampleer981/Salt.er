@@ -286,6 +286,58 @@ public class FeedViewModelTests
     }
 
     [Fact]
+    public async Task Refresh_on_a_sorted_feed_starts_from_another_of_the_first_ten_pages()
+    {
+        var vm = CreateViewModel();
+        (int Pages, int Current)? asked = null;
+        vm.PickRefreshPage = (pages, current) =>
+        {
+            asked = (pages, current);
+            return 7;
+        };
+        _client.Enqueue(Page(1, 40, "a"));
+        await vm.LoadCommand.ExecuteAsync(null);
+        _client.Enqueue(Page(7, 40, "b"));
+        _client.Enqueue(Page(8, 40, "c"));
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+
+        Assert.Equal((FeedViewModel.MaxRefreshPage, 1), asked);
+        Assert.Equal([1, 7, 8], _client.Queries.Select(q => q.Page));
+        Assert.Equal(["b", "c"], vm.Items.Select(i => i.Id));
+    }
+
+    [Fact]
+    public async Task Refresh_of_a_single_page_feed_reloads_page_one()
+    {
+        var vm = CreateViewModel();
+        vm.PickRefreshPage = (_, _) => throw new InvalidOperationException("Not expected for a one-page feed.");
+        _client.Enqueue(Page(1, 1, "a"));
+        await vm.LoadCommand.ExecuteAsync(null);
+        _client.Enqueue(Page(1, 1, "b"));
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        Assert.Equal([1, 1], _client.Queries.Select(q => q.Page));
+    }
+
+    [Fact]
+    public void Default_refresh_page_picker_never_repeats_the_current_page()
+    {
+        var vm = CreateViewModel();
+        vm.PickRefreshPage = new FeedViewModel(
+            _client, new FeedRequestFactory(() => null), _settings, _apiKey, _localizer).PickRefreshPage;
+
+        for (var i = 0; i < 200; i++)
+        {
+            var page = vm.PickRefreshPage(3, 2);
+            Assert.InRange(page, 1, 3);
+            Assert.NotEqual(2, page);
+        }
+    }
+
+    [Fact]
     public async Task Refresh_on_Random_uses_new_seed()
     {
         var vm = CreateViewModel();
@@ -645,7 +697,11 @@ public class FeedViewModelTests
     }
 
     private FeedViewModel CreateViewModel() =>
-        new(_client, new FeedRequestFactory(() => (1920, 1080)), _settings, _apiKey, _localizer);
+        new(_client, new FeedRequestFactory(() => (1920, 1080)), _settings, _apiKey, _localizer)
+        {
+            // Deterministic: a refresh of a sorted feed starts from page 1 unless a test says otherwise.
+            PickRefreshPage = (_, _) => 1,
+        };
 
     private static SearchPage Page(int current, int last, params string[] ids) =>
         new([.. ids.Select(Wallpaper)], current, last, Seed: null);

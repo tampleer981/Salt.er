@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
+using System.Security.Cryptography;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Salter.Core.Feed;
@@ -18,6 +19,9 @@ namespace Salter.Presentation.ViewModels;
 /// </remarks>
 public sealed partial class FeedViewModel : ObservableObject
 {
+    /// <summary>How many leading pages of a sorted feed <see cref="RefreshCommand"/> picks from.</summary>
+    public const int MaxRefreshPage = 10;
+
     private static readonly Sorting[] SortingOrder = [Sorting.Toplist, Sorting.Latest, Sorting.Hot, Sorting.Random];
 
     private static readonly (RatioFilter Value, string? Label)[] RatioOrder =
@@ -159,13 +163,33 @@ public sealed partial class FeedViewModel : ObservableObject
     [ObservableProperty]
     public partial bool LoadMoreFailed { get; private set; }
 
+    /// <summary>
+    /// Picks the page a refresh starts from: a page in 1..<c>pages</c> other than <c>current</c>.
+    /// Replaceable so tests are deterministic.
+    /// </summary>
+    internal Func<int, int, int> PickRefreshPage { get; set; } = static (pages, current) =>
+    {
+        var page = RandomNumberGenerator.GetInt32(1, pages);
+        return page >= current ? page + 1 : page;
+    };
+
     /// <summary>Starts a new query for the current selection.</summary>
     [RelayCommand(AllowConcurrentExecutions = true)]
     private Task LoadAsync() => ReloadAsync();
 
-    /// <summary>Starts the current query again from page 1, with a new random seed.</summary>
+    /// <summary>
+    /// Shows a fresh set of wallpapers for the current selection: <see cref="Sorting.Random"/> starts over with a
+    /// new seed, any other sorting jumps to another of its first <see cref="MaxRefreshPage"/> pages.
+    /// </summary>
     [RelayCommand(AllowConcurrentExecutions = true)]
-    private Task RefreshAsync() => ReloadAsync();
+    private Task RefreshAsync()
+    {
+        var previous = _current;
+        var pages = previous is null || previous.Sorting == Sorting.Random
+            ? 1
+            : Math.Min(previous.LastPage, MaxRefreshPage);
+        return ReloadAsync(pages > 1 ? PickRefreshPage(pages, previous!.StartPage) : 1);
+    }
 
     /// <summary>Searches for <see cref="SearchText"/>, or shows the current genre when the text is blank.</summary>
     [RelayCommand(AllowConcurrentExecutions = true)]
@@ -374,7 +398,7 @@ public sealed partial class FeedViewModel : ObservableObject
     // unexpected failures on the UI context the same way an async command would.
     private async void BeginReload() => await ReloadAsync();
 
-    private async Task ReloadAsync()
+    private async Task ReloadAsync(int startPage = 1)
     {
         _current?.Cancel();
         var generation = new QueryGeneration(
@@ -382,7 +406,8 @@ public sealed partial class FeedViewModel : ObservableObject
             _submittedSearch,
             SelectedSorting,
             Filters,
-            CurrentPurity());
+            CurrentPurity(),
+            startPage);
         _current = generation;
 
         Items.Clear();
@@ -395,7 +420,7 @@ public sealed partial class FeedViewModel : ObservableObject
         SearchPage result;
         try
         {
-            result = await _client.SearchAsync(Query(generation, 1), generation.Token);
+            result = await _client.SearchAsync(Query(generation, startPage), generation.Token);
         }
         catch (OperationCanceledException) when (generation.Token.IsCancellationRequested)
         {
@@ -418,7 +443,7 @@ public sealed partial class FeedViewModel : ObservableObject
             return;
         }
 
-        Accept(generation, result, 1);
+        Accept(generation, result, startPage);
         State = Items.Count == 0 ? FeedState.Empty : FeedState.Ready;
     }
 
@@ -448,6 +473,7 @@ public sealed partial class FeedViewModel : ObservableObject
 
         generation.CurrentPage = page;
         generation.HasMore = result.HasMore;
+        generation.LastPage = Math.Max(generation.LastPage, result.LastPage);
         generation.Seed = result.Seed ?? generation.Seed;
     }
 
@@ -468,8 +494,9 @@ public sealed partial class FeedViewModel : ObservableObject
     {
         private readonly CancellationTokenSource _cancellation = new();
 
-        public QueryGeneration(Genre genre, string searchText, Sorting sorting, FeedFilters filters, Purity purity)
+        public QueryGeneration(Genre genre, string searchText, Sorting sorting, FeedFilters filters, Purity purity, int startPage)
         {
+            StartPage = startPage;
             Genre = genre;
             SearchText = searchText;
             Sorting = sorting;
@@ -494,7 +521,13 @@ public sealed partial class FeedViewModel : ObservableObject
         /// <summary>The random seed returned by the server; <see langword="null"/> until page 1 arrives.</summary>
         public string? Seed { get; set; }
 
+        /// <summary>The page this query started from; refreshing a sorted feed starts from another page.</summary>
+        public int StartPage { get; }
+
         public int CurrentPage { get; set; }
+
+        /// <summary>The last page the server reported for this query.</summary>
+        public int LastPage { get; set; }
 
         public bool HasMore { get; set; }
 
