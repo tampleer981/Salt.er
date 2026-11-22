@@ -5,20 +5,22 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
-using Microsoft.UI.Xaml.Media.Animation;
 using Salter.Presentation.Abstractions;
 using Salter.Presentation.ViewModels;
 
 namespace Salter.App.Views;
 
 /// <summary>
-/// The flyout's content: shows the shell's current screen with a short fade, and the toast over every screen.
+/// The flyout's content: shows the shell's current screen with a short fade (the details also slide up), and the
+/// toast over every screen. Each time the flyout opens, the content fades in while sliding up.
 /// </summary>
 public sealed partial class ShellView : UserControl
 {
     // The radius Windows 11 rounds the window with; a larger one would leave plain acrylic showing in the corners.
     private const float GlassCornerRadius = 8;
+    private const float EntranceOffset = 12;
     private static readonly TimeSpan FadeDuration = TimeSpan.FromMilliseconds(150);
+    private static readonly TimeSpan OpenDuration = TimeSpan.FromMilliseconds(180);
 
     private readonly FeedView _feed;
     private readonly DetailView _detail;
@@ -98,21 +100,8 @@ public sealed partial class ShellView : UserControl
         }
     }
 
-    private static void FadeIn(UIElement page)
-    {
-        var animation = new DoubleAnimation
-        {
-            From = 0,
-            To = 1,
-            Duration = new Duration(FadeDuration),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
-        };
-        Storyboard.SetTarget(animation, page);
-        Storyboard.SetTargetProperty(animation, nameof(UIElement.Opacity));
-        var storyboard = new Storyboard();
-        storyboard.Children.Add(animation);
-        storyboard.Begin();
-    }
+    /// <summary>Fades the content in while it slides up, as the flyout opens. The glass itself stays in place.</summary>
+    public void PlayOpenAnimation() => Motion.Enter(Pages, EntranceOffset, OpenDuration);
 
     private void OnShellPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -139,7 +128,8 @@ public sealed partial class ShellView : UserControl
 
         if (animate)
         {
-            FadeIn(shown);
+            // The details come up from below, like a sheet; the other screens only fade.
+            Motion.Enter(shown, shown == _detail ? EntranceOffset : 0, FadeDuration);
         }
     }
 

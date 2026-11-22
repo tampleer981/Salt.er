@@ -290,12 +290,14 @@
           ViewChanged="OnFeedViewChanged"
           Visibility="{x:Bind local:FeedView.ResultsVisibility(Feed.State), Mode=OneWay}">
         <StackPanel>
+          <!-- Three viewports of realized items, so thumbnails are ready before they scroll into view. -->
           <ItemsRepeater
               ElementClearing="OnThumbnailClearing"
               ElementPrepared="OnThumbnailPrepared"
               ItemsSource="{x:Bind Feed.Items}"
               SizeChanged="OnFeedSizeChanged"
               TabFocusNavigation="Once"
+              VerticalCacheLength="3"
               XYFocusKeyboardNavigation="Enabled">
             <ItemsRepeater.Layout>
               <StackLayout Spacing="2" />
@@ -303,7 +305,8 @@
             <ItemsRepeater.ItemTemplate>
               <!--
                 Parts are found by position in code-behind: the image first, then the hover overlay. The overlay, and
-                so its Set button, takes clicks only while shown.
+                so its Set button, takes clicks only while shown. The image fades in once decoded and grows slightly
+                on hover, clipped to its cell.
               -->
               <DataTemplate x:DataType="wh:WallpaperSummary">
                 <Button
@@ -316,8 +319,20 @@
                     PointerExited="OnThumbnailPointerExited"
                     Style="{StaticResource ThumbnailButtonStyle}"
                     Tag="{x:Bind}">
-                  <Grid Background="{ThemeResource ChipBrush}">
-                    <Image HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="UniformToFill" />
+                  <Grid Background="{ThemeResource ChipBrush}" SizeChanged="OnThumbnailSizeChanged">
+                    <Image
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        ImageOpened="OnThumbnailImageOpened"
+                        Opacity="0"
+                        Stretch="UniformToFill">
+                      <Image.OpacityTransition>
+                        <ScalarTransition Duration="0:0:0.2" />
+                      </Image.OpacityTransition>
+                      <Image.ScaleTransition>
+                        <Vector3Transition Duration="0:0:0.2" />
+                      </Image.ScaleTransition>
+                    </Image>
                     <Grid
                         Padding="12,26,12,10"
                         VerticalAlignment="Bottom"

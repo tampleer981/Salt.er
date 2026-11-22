@@ -1,13 +1,18 @@
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Salter.Core.Wallhaven;
 using Salter.Presentation.Layout;
 using Salter.Presentation.ViewModels;
+using Windows.Foundation;
 using Windows.System;
 using Windows.UI;
 
@@ -19,6 +24,9 @@ namespace Salter.App.Views;
 /// </summary>
 public sealed partial class FeedView : UserControl
 {
+    // How much a thumbnail grows under the pointer.
+    private const float HoverScale = 1.02f;
+
     private readonly Storyboard _shimmer;
     private readonly ChoiceInput _choices = new();
 
@@ -80,22 +88,39 @@ public sealed partial class FeedView : UserControl
 
     private static void SetOverlay(object thumbnail, bool visible)
     {
-        if (ThumbnailParts(thumbnail).Overlay is { } overlay)
+        var (image, overlay) = ThumbnailParts(thumbnail);
+        if (overlay is not null)
         {
-            overlay.Opacity = visible ? 1 : 0;
+            Motion.SetOpacity(overlay, visible ? 1 : 0, animate: true);
             // A hidden Set button must not take clicks meant for the thumbnail.
             overlay.IsHitTestVisible = visible;
         }
+
+        if (image is not null)
+        {
+            // No growth at all while animations are off, rather than a sudden jump.
+            Motion.SetScale(image, visible && Motion.Enabled ? HoverScale : 1, animate: true);
+        }
     }
 
-    private static void HideOverlayAtOnce(UIElement overlay)
+    private static void ResetThumbnail(Image? image, UIElement? overlay, bool keepImage)
     {
-        // Without its transition for this one change, so a recycled element does not fade out its old hover state.
-        var transition = overlay.OpacityTransition;
-        overlay.OpacityTransition = null;
-        overlay.Opacity = 0;
-        overlay.OpacityTransition = transition;
-        overlay.IsHitTestVisible = false;
+        // At once, without transitions, so a recycled element does not fade out the state of its previous item.
+        if (overlay is not null)
+        {
+            Motion.SetOpacity(overlay, 0, animate: false);
+            overlay.IsHitTestVisible = false;
+        }
+
+        if (image is not null)
+        {
+            Motion.SetScale(image, 1, animate: false);
+            if (!keepImage)
+            {
+                // Shown again by ImageOpened once the new image is decoded.
+                Motion.SetOpacity(image, 0, animate: false);
+            }
+        }
     }
 
     private static Color ParseColor(string hex)
@@ -197,15 +222,40 @@ public sealed partial class FeedView : UserControl
     private void OnThumbnailPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
     {
         var (image, overlay) = ThumbnailParts(args.Element);
+        var keepImage = false;
         if (image is not null && sender.ItemsSourceView.GetAt(args.Index) is WallpaperSummary wallpaper)
         {
-            image.Source = Ui.Thumbnail(wallpaper.ThumbnailUrl, XamlRoot);
+            // An element prepared again for the image it still shows keeps it, instead of downloading and decoding
+            // it once more.
+            keepImage = image.Source is BitmapImage current && current.UriSource == wallpaper.ThumbnailUrl;
+            if (!keepImage)
+            {
+                image.Source = Ui.Thumbnail(wallpaper.ThumbnailUrl, XamlRoot);
+            }
         }
 
-        // Elements are recycled; a reused one must not keep the hover state of its previous item.
-        if (overlay is not null)
+        // Elements are recycled; a reused one must not keep the hover state or image of its previous item.
+        ResetThumbnail(image, overlay, keepImage);
+    }
+
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML connects event handlers to the instance.")]
+    private void OnThumbnailImageOpened(object sender, RoutedEventArgs e)
+    {
+        if (sender is Image image)
         {
-            HideOverlayAtOnce(overlay);
+            Motion.SetOpacity(image, 1, animate: true);
+        }
+    }
+
+    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML connects event handlers to the instance.")]
+    private void OnThumbnailSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        // The image grows on hover around its centre; the cell clips it so it never covers its neighbours.
+        if (sender is Grid { Children: [Image image, ..] } cell)
+        {
+            var size = e.NewSize;
+            cell.Clip = new RectangleGeometry { Rect = new Rect(0, 0, size.Width, size.Height) };
+            image.CenterPoint = new Vector3((float)(size.Width / 2), (float)(size.Height / 2), 0);
         }
     }
 
@@ -242,7 +292,15 @@ public sealed partial class FeedView : UserControl
 
     private void OnThumbnailLostFocus(object sender, RoutedEventArgs e) => SetOverlay(sender, visible: false);
 
-    private void OnFeedViewChanged(object? sender, ScrollViewerViewChangedEventArgs e) => LoadMoreIfNearEnd();
+    private void OnFeedViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
+    {
+        // Runs for every scrolled frame: only cheap property reads here, and no command while a page is already
+        // loading or waits for the Retry button.
+        if (!Feed.IsLoadingMore && !Feed.LoadMoreFailed)
+        {
+            LoadMoreIfNearEnd();
+        }
+    }
 
     // Also after a page arrives: a list shorter than the viewport never scrolls, so it would never load more.
     private void OnFeedSizeChanged(object sender, SizeChangedEventArgs e) => LoadMoreIfNearEnd();

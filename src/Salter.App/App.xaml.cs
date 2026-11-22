@@ -184,6 +184,7 @@ public sealed partial class App : Application
             _shell.Feed.LoadCommand.Execute(null);
         }
 
+        _shellView?.PlayOpenAnimation();
         _shellView?.FocusCurrentPage();
     }
 
