@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/tampleer981/salt.er/actions/workflows/ci.yml"><img src="https://github.com/tampleer981/salt.er/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
+  <a href="https://github.com/tampleer981/salt.er/actions/workflows/ci.yml"><img src="https://github.com/tampleer981/salt.er/actions/workflows/ci.yml/badge.svg?branch=main&event=push" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/tampleer981/salt.er" alt="MIT license"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4" alt="Platform: Windows 10 and 11">
 </p>
