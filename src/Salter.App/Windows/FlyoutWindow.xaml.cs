@@ -1,4 +1,5 @@
 using Microsoft.UI;
+using Microsoft.UI.Composition;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -8,6 +9,7 @@ using Salter.App.Interop;
 using Windows.Foundation;
 using Windows.Graphics;
 using Windows.System;
+using WinRT;
 
 // The namespace is Salter.App rather than Salter.App.Windows, which would shadow the Windows.* namespaces.
 namespace Salter.App;
@@ -22,9 +24,15 @@ public sealed partial class FlyoutWindow : Window
     // afterwards comes from that same click and must not reopen it.
     private const long ReopenGuardMilliseconds = 300;
 
+    // Lighter than the system acrylic, so more of the desktop shows through; the blur keeps the text legible.
+    private const float AcrylicTintOpacity = 0.15f;
+    private const float AcrylicLuminosityOpacity = 0.55f;
+
     private readonly nint _handle;
     private bool _closeForExit;
     private long? _autoHiddenAt;
+    private DesktopAcrylicController? _acrylic;
+    private SystemBackdropConfiguration? _backdropConfiguration;
 
     /// <summary>Creates the hidden flyout.</summary>
     public FlyoutWindow()
@@ -50,6 +58,7 @@ public sealed partial class FlyoutWindow : Window
         AppWindow.IsShownInSwitchers = false;
         AppWindow.Closing += OnClosing;
         Activated += OnActivated;
+        Closed += OnClosed;
 
         RoundCorners();
     }
@@ -82,18 +91,52 @@ public sealed partial class FlyoutWindow : Window
     public nint Handle => _handle;
 
     /// <summary>
-    /// Puts desktop acrylic behind the content where the system supports it. Without it the content's own glass fill
-    /// still shows, over the plain window background.
+    /// Puts a light desktop acrylic behind the content where the system supports it: less tint than the system
+    /// default, so more of the desktop shows through. It follows the flyout's theme and activation, and is disposed
+    /// with the window. Without it the content's own glass fill still shows, over the plain window background.
     /// </summary>
     /// <returns><see langword="true"/> if the backdrop was set; <see langword="false"/> if it is not supported.</returns>
     public bool TrySetAcrylicBackdrop()
     {
+        if (_acrylic is not null)
+        {
+            return true;
+        }
+
         if (!DesktopAcrylicController.IsSupported())
         {
             return false;
         }
 
-        SystemBackdrop = new DesktopAcrylicBackdrop();
+        var configuration = new SystemBackdropConfiguration
+        {
+            IsInputActive = true,
+            Theme = BackdropTheme(Root.ActualTheme),
+        };
+        var acrylic = new DesktopAcrylicController
+        {
+            TintOpacity = AcrylicTintOpacity,
+            LuminosityOpacity = AcrylicLuminosityOpacity,
+        };
+        try
+        {
+            // The tint colour is left unset, so it keeps following the configuration's theme.
+            acrylic.SetSystemBackdropConfiguration(configuration);
+            if (!acrylic.AddSystemBackdropTarget(this.As<ICompositionSupportsSystemBackdrop>()))
+            {
+                acrylic.Dispose();
+                return false;
+            }
+        }
+        catch
+        {
+            acrylic.Dispose();
+            throw;
+        }
+
+        _acrylic = acrylic;
+        _backdropConfiguration = configuration;
+        Root.ActualThemeChanged += OnRootThemeChanged;
         return true;
     }
 
@@ -170,8 +213,31 @@ public sealed partial class FlyoutWindow : Window
         _ = NativeMethods.DwmSetWindowAttribute(_handle, NativeMethods.DwmBorderColor, in borderColor, sizeof(int));
     }
 
+    private static SystemBackdropTheme BackdropTheme(ElementTheme theme) => theme switch
+    {
+        ElementTheme.Light => SystemBackdropTheme.Light,
+        ElementTheme.Dark => SystemBackdropTheme.Dark,
+        _ => SystemBackdropTheme.Default,
+    };
+
+    private void OnRootThemeChanged(FrameworkElement sender, object args) =>
+        _backdropConfiguration?.Theme = BackdropTheme(sender.ActualTheme);
+
+    private void OnClosed(object sender, WindowEventArgs args)
+    {
+        Root.ActualThemeChanged -= OnRootThemeChanged;
+        _acrylic?.Dispose();
+        _acrylic = null;
+        _backdropConfiguration = null;
+    }
+
     private void OnActivated(object sender, WindowActivatedEventArgs args)
     {
+        // Inactive but still shown (a picker it opened has the focus): the acrylic's solid fallback, as the system
+        // shows for its own windows. A flyout that hides on deactivation keeps the acrylic, so it does not reopen
+        // with a fade from the fallback.
+        _backdropConfiguration?.IsInputActive =
+            args.WindowActivationState != WindowActivationState.Deactivated || !SuppressAutoHide;
         if (args.WindowActivationState == WindowActivationState.Deactivated && !SuppressAutoHide && IsOpen)
         {
             _autoHiddenAt = Environment.TickCount64;

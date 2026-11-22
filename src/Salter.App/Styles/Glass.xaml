@@ -11,7 +11,7 @@
   <ResourceDictionary.ThemeDictionaries>
     <!-- Dark; also used for any theme without its own dictionary. -->
     <ResourceDictionary x:Key="Default">
-      <SolidColorBrush x:Key="GlassFillBrush" Color="#94141619" />
+      <SolidColorBrush x:Key="GlassFillBrush" Color="#66141619" />
       <SolidColorBrush x:Key="GlassBorderBrush" Color="#24FFFFFF" />
       <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFF4F5F8" />
       <SolidColorBrush x:Key="TextSecondaryBrush" Color="#B3F4F5F8" />
@@ -23,7 +23,7 @@
       <SolidColorBrush x:Key="SegmentSelectedBrush" Color="#29FFFFFF" />
     </ResourceDictionary>
     <ResourceDictionary x:Key="Light">
-      <SolidColorBrush x:Key="GlassFillBrush" Color="#9EF8F9FB" />
+      <SolidColorBrush x:Key="GlassFillBrush" Color="#70F8F9FB" />
       <SolidColorBrush x:Key="GlassBorderBrush" Color="#17000000" />
       <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FF14161B" />
       <SolidColorBrush x:Key="TextSecondaryBrush" Color="#AD14161B" />
