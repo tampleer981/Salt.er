@@ -43,11 +43,16 @@ projects that build everywhere.
    `FeedRequestFactory` turns the genre, sort, filters and settings into a
    `SearchQuery` (for example Nature is the tag `nature` in the general
    category; All is general plus anime; the people category is never used).
+   Excluded tags from the settings are appended to the search text as
+   `-tag` terms (`nature -people -car`); `TagExclusions` keeps them to ten
+   one-word tags, because wallhaven has no quoting for multi-word exclusions.
 3. `WallhavenClient` sends the request through the handler pipeline below and
    deserializes the page of `WallpaperSummary` items.
 4. The view model appends the items, skipping ids it already holds, and the
    view renders thumbnails. Scrolling near the end requests the next page,
-   one page at a time.
+   one page at a time. After **Refresh** on a sorted feed, the next page is
+   the next of a random order of the first twenty pages, and each page's
+   items are shuffled before they are appended.
 5. Choosing **Set** calls `DetailViewModel`, which asks `IWallpaperDownloader`
    for the full-resolution file, writes it to the download folder, and passes
    the path to `IWallpaperService`. The Windows implementation calls

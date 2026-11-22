@@ -28,7 +28,9 @@ background activity beyond the tray icon. It uses about 50–120 MB of RAM.
 ### Browse
 
 Four feeds: **Toplist** (the best of the last month), **Latest**, **Hot** and
-**Random**. Thumbnails load as you scroll.
+**Random**. Thumbnails load as you scroll. The refresh button shuffles the
+current feed: its first pages arrive in a random order, and so do the
+wallpapers on each page.
 
 ### Genres
 
@@ -50,11 +52,15 @@ Press <kbd>Ctrl</kbd>+<kbd>K</kbd> to search by keyword. Narrow the results by
 aspect ratio (16:9, 21:9, or vertical 9:16), by resolution (at least your
 display's native resolution, at least 4K, or any), and by dominant color.
 
+Exclude tags you never want to see: type a tag under **Exclude** in the filters
+panel and press <kbd>Enter</kbd>, or right-click a tag in a wallpaper's preview.
+Up to ten one-word tags are kept between sessions; remove one with its **×**.
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/search-filters-dark.png">
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/screenshots/search-filters-light.png">
-    <img src="docs/assets/screenshots/search-filters-light.png" alt="Searching for mountains in Salt.er with the filters panel open and the 4K resolution selected" width="360">
+    <img src="docs/assets/screenshots/search-filters-light.png" alt="Searching for mountains in Salt.er with the filters panel open, the 4K resolution selected and the people tag excluded" width="360">
   </picture>
 </p>
 
