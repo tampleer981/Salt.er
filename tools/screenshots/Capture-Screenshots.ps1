@@ -8,20 +8,23 @@
     Windows desktop session nobody uses at the same time (for example a GitHub-hosted Windows runner): it changes
     the wallpaper, the display resolution and the app's settings, and stops any running Salt.er.
 
-    For each theme (Dark, Light) it writes settings.json with that theme, starts the app and captures:
+    For each theme (Dark, Light) it writes settings.json with that theme and the "people" tag excluded, starts the
+    app and captures:
       genre-<theme>.png           the Nature genre, nothing hovered (plus hero.png in Dark: the flyout above the
                                   taskbar)
-      feed-<theme>.png            the same feed with the pointer on the first wallpaper, showing its Set button
+      feed-<theme>.png            optional: the same feed with the pointer on the first wallpaper, showing its Set
+                                  button; skipped with a warning where the runner cannot show the hover state
       detail-<theme>.png          the first wallpaper's details
       applied-<theme>.png         the toast after setting it as the wallpaper
-      search-filters-<theme>.png  a search for "mountains" with the filters panel open and 4K+ chosen
+      search-filters-<theme>.png  a search for "mountains" with the filters panel open, 4K+ chosen and the
+                                  "people" exclusion chip shown
       settings-<theme>.png        the settings screen
     Stray system dialogs are closed first, and focus rectangles and hover states are cleared before each capture
     except where the state shows them.
     and writes manifest.json listing the files and their captions.
 
     A state that fails is logged, a full-screen image of the moment is saved under diagnostics/, and the script
-    moves on. It exits with 1 only if no screenshot was produced.
+    moves on. An optional state that fails only logs a warning. It exits with 1 only if no screenshot was produced.
 
 .PARAMETER AppPath
     Path to the published Salter.App.exe.
@@ -82,6 +85,8 @@ $Ui = @{
     SettingsHead = 'Settings'           # Settings_Title: heading of the settings screen
 }
 $SearchQuery = 'mountains'
+# Seeded into settings.json, so the filters panel shows an exclusion chip ("#people").
+$ExcludedTag = 'people'
 # Thumbnails are buttons named after the wallpaper's resolution, such as "3840x2160".
 $ThumbnailPattern = '^\d{3,5}\s*[x\u00D7]\s*\d{3,5}$'
 # Toast texts: Toast_Applied / Toast_AppliedAll on success, Toast_Failed on failure.
@@ -92,7 +97,7 @@ $Captions = [ordered]@{
     'hero'           = 'Salt.er opens as a glass flyout above the tray.'
     'feed'           = 'The feed (Nature genre, Toplist order) with the Set button shown on the wallpaper under the pointer.'
     'genre'          = 'Genre chips, sort tabs and the Nature genre selected.'
-    'search-filters' = 'Searching for "mountains" (all genres) with the filters panel open and the 4K+ resolution chosen.'
+    'search-filters' = 'Searching for "mountains" (all genres) with the filters panel open, the 4K+ resolution chosen and the people tag excluded.'
     'detail'         = 'Wallpaper details: preview, tags and the Set as wallpaper button.'
     'applied'        = 'The confirmation toast after setting a wallpaper.'
     'settings'       = 'Settings: API key, content, download folder, start with Windows and theme.'
@@ -236,10 +241,11 @@ function Write-AppSettings([string] $Theme) {
         launchAtStartup = $false
         theme           = $Theme
         purity          = 'Sfw'
+        excludedTags    = @($ExcludedTag)
     }
     $path = Join-Path $folder 'settings.json'
     [System.IO.File]::WriteAllText($path, ($settings | ConvertTo-Json))
-    Write-Step "Wrote $path (theme $Theme, downloads to $downloads)"
+    Write-Step "Wrote $path (theme $Theme, excluding '$ExcludedTag', downloads to $downloads)"
 }
 
 function Stop-App {
@@ -707,12 +713,18 @@ function Save-Diagnostics([string] $Name) {
     }
 }
 
-function Invoke-State([string] $Name, [scriptblock] $Action) {
+function Invoke-State([string] $Name, [scriptblock] $Action, [switch] $Optional) {
     Write-Step "State $Name"
     try {
         & $Action
     }
     catch {
+        if ($Optional) {
+            # Nice to have, and not reliably reachable on every runner: no failure, no diagnostics.
+            Write-Host "::warning::Optional state $Name skipped: $($_.Exception.Message)"
+            return
+        }
+
         $script:Failures.Add($Name)
         Write-Problem "State $Name failed: $($_.Exception.Message)"
         Write-Host $_.ScriptStackTrace
@@ -820,7 +832,8 @@ function Invoke-Theme([string] $Theme) {
             }
         }
 
-        Invoke-State "feed-$suffix" {
+        # Optional: synthetic pointer input does not always reach the flyout on a hosted runner, and no page uses it.
+        Invoke-State "feed-$suffix" -Optional {
             # Pointing at the first wallpaper shows its resolution and the quick Set button.
             Show-HoverOverlay (Get-FirstThumbnail (Get-Flyout))
             Save-Flyout 'feed' $Theme
@@ -893,6 +906,16 @@ function Invoke-Theme([string] $Theme) {
             }
             Select-Element $chip
             Wait-FeedReload
+            try {
+                # The chip of the tag excluded in settings.json, in the panel's Exclude row.
+                $null = Wait-Until -Description "the #$ExcludedTag exclusion chip" -TimeoutSeconds 5 -Condition {
+                    Find-Text (Get-Flyout) "^#$ExcludedTag$"
+                }
+            }
+            catch {
+                Write-Problem "Filters panel without the exclusion chip: $($_.Exception.Message)"
+            }
+
             Clear-FocusVisuals
             Save-Flyout 'search-filters' $Theme
         }
