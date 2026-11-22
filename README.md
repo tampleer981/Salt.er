@@ -21,7 +21,7 @@
 
 Salt.er lives in the notification area. Click the tray icon, pick a wallpaper,
 and it is on your desktop. There is no main window, no account and no
-background activity beyond the tray icon.
+background activity beyond the tray icon. It uses about 50–120 MB of RAM.
 
 ## Features
 
@@ -108,6 +108,10 @@ optional wallhaven API key, and choose which content purity levels to browse.
 Salt.er supports Windows 10 (version 2004 or later) and Windows 11, on x64 and
 ARM64.
 
+| Resource | Typical use |
+| --- | --- |
+| Memory | 50–120 MB (lower while the flyout is hidden, higher with thumbnails loaded) |
+
 ### Installer (recommended)
 
 1. Download `Salt.er-win-x64-Setup.exe` (or the `arm64` build) from
@@ -145,10 +149,12 @@ Get-FileHash .\Salt.er-win-x64-Setup.exe -Algorithm SHA256
 
 ### Updates
 
-An installed Salt.er checks GitHub Releases once at startup, downloads a newer
-stable release in the background, and applies it when you exit Salt.er from
-the tray menu. Failures are logged and never interrupt you. The portable ZIP
-does not check for updates.
+An installed Salt.er updates itself silently, with nothing to click. It checks
+GitHub Releases at startup and every six hours, downloads a newer stable release
+in the background, and applies it the next time Salt.er starts (after a restart
+or sign-in it comes back on the new version) or when you exit it from the tray
+menu. Failures are logged and never interrupt you. The portable ZIP does not
+check for updates.
 
 ## Usage
 

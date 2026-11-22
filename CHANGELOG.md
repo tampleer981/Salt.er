@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-22
+
+### Added
+
+- Silent automatic updates: a downloaded release is applied at the next start, which restarts straight into the
+  new version, as well as on exit from the tray menu.
+- Running copies check for updates every six hours, not only at startup.
+
+### Changed
+
+- Refresh shows a new set of wallpapers: Random draws a new seed, other feeds jump to another of their first
+  ten pages.
+- New tray icon matching the app icon.
+- README lists typical memory use (50–120 MB).
+
 ## [1.0.0] - 2026-11-22
 
 ### Added
@@ -21,5 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unsigned installer, portable ZIP and SHA-256 checksums for x64 and ARM64, with automatic updates for
   installed copies.
 
-[Unreleased]: https://github.com/tampleer981/salt.er/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/tampleer981/salt.er/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/tampleer981/salt.er/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/tampleer981/salt.er/releases/tag/v1.0.0

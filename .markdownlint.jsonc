@@ -4,5 +4,7 @@
   "MD013": false,
   // The README centers its title and uses <picture>, <kbd> and similar HTML.
   "MD033": false,
-  "MD041": false
+  "MD041": false,
+  // Keep a Changelog repeats "Added", "Changed" and so on under every release.
+  "MD024": { "siblings_only": true }
 }
