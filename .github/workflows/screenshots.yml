@@ -31,7 +31,7 @@ jobs:
       contents: write
     steps:
       # The branch itself rather than the commit, so the screenshots can be committed on top of it.
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.ref }}
 
