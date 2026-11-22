@@ -30,6 +30,7 @@
 
       <!-- Toast: 32 px pill along the bottom, clear of the refresh button on the left. -->
       <Border
+          x:Name="Toast"
           Height="32"
           Margin="64,0,14,18"
           Padding="12,0"

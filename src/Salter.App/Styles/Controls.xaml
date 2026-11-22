@@ -2,8 +2,8 @@
 <!--
   Control styles of the flyout. Templates use visual states only (no triggers), keep the system focus visuals and
   read the glass colours with {ThemeResource}, so they follow the flyout's theme. Selection and hover ease in with
-  short implicit transitions, as the system's own control templates do; they run on the compositor and cost nothing
-  at rest.
+  short BrushTransition animations on the compositor (avoiding ScalarTransition/OpacityTransition on template parts,
+  which crashes WinUI 3 when Windows animation effects are enabled on elements without a managed peer).
 -->
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -14,7 +14,7 @@
     <Setter Property="Width" Value="36" />
     <Setter Property="Height" Value="36" />
     <Setter Property="Padding" Value="0" />
-    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="CornerRadius" Value="10" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -63,7 +63,7 @@
     <Setter Property="Width" Value="36" />
     <Setter Property="Height" Value="36" />
     <Setter Property="Padding" Value="0" />
-    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="CornerRadius" Value="10" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
     <Setter Property="UseSystemFocusVisuals" Value="True" />
@@ -142,13 +142,12 @@
                 <VisualState x:Name="Normal" />
                 <VisualState x:Name="PointerOver">
                   <VisualState.Setters>
-                    <Setter Target="HoverOverlay.Opacity" Value="1" />
+                    <Setter Target="HoverOverlay.Background" Value="{ThemeResource HoverBrush}" />
                   </VisualState.Setters>
                 </VisualState>
                 <VisualState x:Name="Pressed">
                   <VisualState.Setters>
                     <Setter Target="HoverOverlay.Background" Value="{ThemeResource PressedBrush}" />
-                    <Setter Target="HoverOverlay.Opacity" Value="1" />
                   </VisualState.Setters>
                 </VisualState>
                 <VisualState x:Name="Disabled">
@@ -173,10 +172,14 @@
             <Grid.BackgroundTransition>
               <BrushTransition Duration="0:0:0.15" />
             </Grid.BackgroundTransition>
-            <Border x:Name="HoverOverlay" Background="{ThemeResource HoverBrush}" Opacity="0">
-              <Border.OpacityTransition>
-                <ScalarTransition Duration="0:0:0.1" />
-              </Border.OpacityTransition>
+            <Border
+                x:Name="HoverOverlay"
+                Background="{ThemeResource HoverTransparentBrush}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                IsHitTestVisible="False">
+              <Border.BackgroundTransition>
+                <BrushTransition Duration="0:0:0.1" />
+              </Border.BackgroundTransition>
             </Border>
             <ContentPresenter
                 x:Name="Presenter"
@@ -229,7 +232,7 @@
                 <VisualState x:Name="Checked">
                   <VisualState.Setters>
                     <Setter Target="Presenter.Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-                    <Setter Target="Indicator.Opacity" Value="1" />
+                    <Setter Target="Indicator.Background" Value="{ThemeResource AccentBrush}" />
                   </VisualState.Setters>
                 </VisualState>
                 <VisualState x:Name="Unchecked" />
@@ -250,12 +253,12 @@
                 Margin="0,0,0,4"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Bottom"
-                Background="{ThemeResource AccentBrush}"
+                Background="{ThemeResource AccentTransparentBrush}"
                 CornerRadius="1.5"
-                Opacity="0">
-              <Border.OpacityTransition>
-                <ScalarTransition Duration="0:0:0.15" />
-              </Border.OpacityTransition>
+                IsHitTestVisible="False">
+              <Border.BackgroundTransition>
+                <BrushTransition Duration="0:0:0.15" />
+              </Border.BackgroundTransition>
             </Border>
           </Grid>
         </ControlTemplate>
@@ -269,7 +272,7 @@
     <Setter Property="MinWidth" Value="0" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="Padding" Value="8,0" />
-    <Setter Property="CornerRadius" Value="5" />
+    <Setter Property="CornerRadius" Value="8" />
     <Setter Property="FontSize" Value="12" />
     <Setter Property="FontWeight" Value="Medium" />
     <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
@@ -283,13 +286,12 @@
                 <VisualState x:Name="Normal" />
                 <VisualState x:Name="PointerOver">
                   <VisualState.Setters>
-                    <Setter Target="HoverOverlay.Opacity" Value="1" />
+                    <Setter Target="HoverOverlay.Background" Value="{ThemeResource HoverBrush}" />
                   </VisualState.Setters>
                 </VisualState>
                 <VisualState x:Name="Pressed">
                   <VisualState.Setters>
                     <Setter Target="HoverOverlay.Background" Value="{ThemeResource PressedBrush}" />
-                    <Setter Target="HoverOverlay.Opacity" Value="1" />
                   </VisualState.Setters>
                 </VisualState>
                 <VisualState x:Name="Disabled">
@@ -313,10 +315,14 @@
             <Grid.BackgroundTransition>
               <BrushTransition Duration="0:0:0.15" />
             </Grid.BackgroundTransition>
-            <Border x:Name="HoverOverlay" Background="{ThemeResource HoverBrush}" Opacity="0">
-              <Border.OpacityTransition>
-                <ScalarTransition Duration="0:0:0.1" />
-              </Border.OpacityTransition>
+            <Border
+                x:Name="HoverOverlay"
+                Background="{ThemeResource HoverTransparentBrush}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                IsHitTestVisible="False">
+              <Border.BackgroundTransition>
+                <BrushTransition Duration="0:0:0.1" />
+              </Border.BackgroundTransition>
             </Border>
             <ContentPresenter
                 x:Name="Presenter"
@@ -384,7 +390,7 @@
   <Style x:Key="PrimaryButtonStyle" TargetType="Button">
     <Setter Property="Height" Value="44" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
-    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="CornerRadius" Value="12" />
     <Setter Property="FontSize" Value="14" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{ThemeResource OnAccentBrush}" />
@@ -415,9 +421,14 @@
                 </VisualState>
               </VisualStateGroup>
             </VisualStateManager.VisualStateGroups>
-            <Border x:Name="StateOverlay" Background="White" Opacity="0" />
+            <Border
+                x:Name="StateOverlay"
+                Background="White"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                IsHitTestVisible="False"
+                Opacity="0" />
             <!-- Inner highlight along the top edge. -->
-            <Rectangle Height="1" Margin="8,0" VerticalAlignment="Top" Fill="{ThemeResource AccentHighlightBrush}" />
+            <Rectangle Height="1" Margin="10,0" VerticalAlignment="Top" Fill="{ThemeResource AccentHighlightBrush}" />
             <ContentPresenter
                 x:Name="Presenter"
                 HorizontalAlignment="Center"
@@ -434,7 +445,7 @@
   <Style x:Key="SecondaryButtonStyle" TargetType="Button">
     <Setter Property="MinHeight" Value="32" />
     <Setter Property="Padding" Value="12,0" />
-    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="CornerRadius" Value="8" />
     <Setter Property="FontSize" Value="12" />
     <Setter Property="FontWeight" Value="Medium" />
     <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
@@ -472,7 +483,12 @@
                 </VisualState>
               </VisualStateGroup>
             </VisualStateManager.VisualStateGroups>
-            <Border x:Name="HoverOverlay" Background="{ThemeResource HoverBrush}" Opacity="0" />
+            <Border
+                x:Name="HoverOverlay"
+                Background="{ThemeResource HoverBrush}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                IsHitTestVisible="False"
+                Opacity="0" />
             <ContentPresenter
                 x:Name="Presenter"
                 Padding="{TemplateBinding Padding}"

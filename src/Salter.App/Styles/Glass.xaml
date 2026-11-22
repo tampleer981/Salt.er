@@ -11,24 +11,40 @@
   <ResourceDictionary.ThemeDictionaries>
     <!-- Dark; also used for any theme without its own dictionary. -->
     <ResourceDictionary x:Key="Default">
-      <SolidColorBrush x:Key="GlassFillBrush" Color="#66141619" />
+      <LinearGradientBrush x:Key="GlassFillBrush" StartPoint="0.5,0" EndPoint="0.5,1">
+        <GradientStop Offset="0" Color="#660B0D10" />
+        <GradientStop Offset="1" Color="#5922262E" />
+      </LinearGradientBrush>
+      <LinearGradientBrush x:Key="FallbackWindowBrush" StartPoint="0.5,0" EndPoint="0.5,1">
+        <GradientStop Offset="0" Color="#FF0B0D10" />
+        <GradientStop Offset="1" Color="#FF242830" />
+      </LinearGradientBrush>
       <SolidColorBrush x:Key="GlassBorderBrush" Color="#24FFFFFF" />
       <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFF4F5F8" />
       <SolidColorBrush x:Key="TextSecondaryBrush" Color="#B3F4F5F8" />
       <SolidColorBrush x:Key="FieldBrush" Color="#12FFFFFF" />
       <SolidColorBrush x:Key="ChipBrush" Color="#17FFFFFF" />
+      <SolidColorBrush x:Key="HoverTransparentBrush" Color="#007F7F7F" />
       <SolidColorBrush x:Key="HoverBrush" Color="#2E7F7F7F" />
       <SolidColorBrush x:Key="PressedBrush" Color="#457F7F7F" />
       <SolidColorBrush x:Key="SheetBrush" Color="#D112141A" />
       <SolidColorBrush x:Key="SegmentSelectedBrush" Color="#29FFFFFF" />
     </ResourceDictionary>
     <ResourceDictionary x:Key="Light">
-      <SolidColorBrush x:Key="GlassFillBrush" Color="#70F8F9FB" />
+      <LinearGradientBrush x:Key="GlassFillBrush" StartPoint="0.5,0" EndPoint="0.5,1">
+        <GradientStop Offset="0" Color="#75F8F9FB" />
+        <GradientStop Offset="1" Color="#66EAEFF5" />
+      </LinearGradientBrush>
+      <LinearGradientBrush x:Key="FallbackWindowBrush" StartPoint="0.5,0" EndPoint="0.5,1">
+        <GradientStop Offset="0" Color="#FFF7F8FA" />
+        <GradientStop Offset="1" Color="#FFE8ECF2" />
+      </LinearGradientBrush>
       <SolidColorBrush x:Key="GlassBorderBrush" Color="#17000000" />
       <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FF14161B" />
       <SolidColorBrush x:Key="TextSecondaryBrush" Color="#AD14161B" />
       <SolidColorBrush x:Key="FieldBrush" Color="#8CFFFFFF" />
       <SolidColorBrush x:Key="ChipBrush" Color="#0F000000" />
+      <SolidColorBrush x:Key="HoverTransparentBrush" Color="#007F7F7F" />
       <SolidColorBrush x:Key="HoverBrush" Color="#2E7F7F7F" />
       <SolidColorBrush x:Key="PressedBrush" Color="#457F7F7F" />
       <SolidColorBrush x:Key="SheetBrush" Color="#E0F6F7FA" />
@@ -48,6 +64,8 @@
   </LinearGradientBrush>
 
   <SolidColorBrush x:Key="AccentBrush" Color="#FF8FB0FF" />
+  <!-- Same RGB as AccentBrush at zero alpha so BrushTransition fades cleanly without hue shift. -->
+  <SolidColorBrush x:Key="AccentTransparentBrush" Color="#008FB0FF" />
   <SolidColorBrush x:Key="OnAccentBrush" Color="#FF0B0D12" />
   <SolidColorBrush x:Key="AccentHighlightBrush" Color="#8CFFFFFF" />
 

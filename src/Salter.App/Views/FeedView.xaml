@@ -83,7 +83,7 @@
         Background="{ThemeResource FieldBrush}"
         BorderBrush="{ThemeResource GlassBorderBrush}"
         BorderThickness="1"
-        CornerRadius="8">
+        CornerRadius="12">
       <Grid ColumnSpacing="8">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto" />
@@ -116,7 +116,7 @@
             VerticalAlignment="Center"
             BorderBrush="{ThemeResource GlassBorderBrush}"
             BorderThickness="1"
-            CornerRadius="4">
+            CornerRadius="6">
           <TextBlock
               FontSize="11"
               Foreground="{ThemeResource TextSecondaryBrush}"
@@ -133,7 +133,7 @@
         Background="{ThemeResource FieldBrush}"
         BorderBrush="{ThemeResource GlassBorderBrush}"
         BorderThickness="1"
-        CornerRadius="8"
+        CornerRadius="12"
         Visibility="{x:Bind Feed.FiltersOpen, Mode=OneWay}">
       <Grid ColumnSpacing="10" RowSpacing="10">
         <Grid.ColumnDefinitions>
@@ -241,7 +241,7 @@
               Background="{ThemeResource ChipBrush}"
               BorderBrush="{ThemeResource GlassBorderBrush}"
               BorderThickness="1"
-              CornerRadius="6">
+              CornerRadius="8">
             <TextBox
                 x:Name="ExclusionBox"
                 Padding="0,4"

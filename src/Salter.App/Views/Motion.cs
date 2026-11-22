@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml;
 using Windows.UI.ViewManagement;
 
@@ -10,7 +11,7 @@ namespace Salter.App.Views;
 /// </summary>
 internal static class Motion
 {
-    private static readonly UISettings Settings = new();
+    private static UISettings? _settings;
 
     /// <summary>Gets a value indicating whether the user allows animations; read on every use, so changes apply at once.</summary>
     public static bool Enabled
@@ -19,9 +20,10 @@ internal static class Motion
         {
             try
             {
-                return Settings.AnimationsEnabled;
+                _settings ??= new UISettings();
+                return _settings.AnimationsEnabled;
             }
-            catch (System.Runtime.InteropServices.COMException)
+            catch (COMException)
             {
                 return true;
             }
