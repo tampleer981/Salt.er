@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-22
+
 ### Added
 
 - Tray flyout with browsing by Toplist, Latest, Hot and Random.
@@ -18,3 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rate limiting (45 requests per minute), retry on HTTP 429 and request timeouts.
 - Unsigned installer, portable ZIP and SHA-256 checksums for x64 and ARM64, with automatic updates for
   installed copies.
+
+[Unreleased]: https://github.com/tampleer981/salt.er/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/tampleer981/salt.er/releases/tag/v1.0.0
