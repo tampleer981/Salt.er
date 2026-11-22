@@ -28,6 +28,7 @@ public sealed class JsonSettingsStoreTests : IDisposable
         Assert.False(defaults.LaunchAtStartup);
         Assert.Equal(ThemePreference.System, defaults.Theme);
         Assert.Equal(Purity.Sfw, defaults.Purity);
+        Assert.Empty(defaults.ExcludedTags);
     }
 
     [Fact]
@@ -203,5 +204,70 @@ public sealed class JsonSettingsStoreTests : IDisposable
 
         Assert.Equal(AppSettings.Default with { Theme = ThemePreference.Dark, LaunchAtStartup = true }, settings);
         Assert.False(File.Exists(SettingsPath + ".bak"));
+    }
+
+    [Fact]
+    public void Roundtrip_preserves_excluded_tags()
+    {
+        var store = new JsonSettingsStore(SettingsPath);
+        var settings = AppSettings.Default with { ExcludedTags = ["people", "car"] };
+
+        store.Save(settings);
+
+        Assert.Contains("\"excludedTags\"", File.ReadAllText(SettingsPath), StringComparison.Ordinal);
+        var loaded = new JsonSettingsStore(SettingsPath).Load();
+        Assert.Equal(settings, loaded);
+        Assert.Equal(["people", "car"], loaded.ExcludedTags);
+    }
+
+    [Fact]
+    public void File_without_excluded_tags_loads_none()
+    {
+        // Written by 1.1.0, before exclusions existed.
+        WriteFile("""{ "downloadFolder": "D:\\Walls", "launchAtStartup": false, "theme": "Dark", "purity": "Sfw" }""");
+
+        var settings = new JsonSettingsStore(SettingsPath).Load();
+
+        Assert.Empty(settings.ExcludedTags);
+        Assert.Equal(ThemePreference.Dark, settings.Theme);
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("[]")]
+    public void Null_or_empty_excluded_tags_load_none(string tags)
+    {
+        WriteFile($$"""{ "excludedTags": {{tags}} }""");
+
+        Assert.Equal(AppSettings.Default, new JsonSettingsStore(SettingsPath).Load());
+    }
+
+    [Fact]
+    public void Invalid_and_duplicate_excluded_tags_are_dropped()
+    {
+        WriteFile("""{ "excludedTags": [" People ", "people", null, "", "digital art", "car"] }""");
+
+        Assert.Equal(["people", "car"], new JsonSettingsStore(SettingsPath).Load().ExcludedTags);
+    }
+
+    [Fact]
+    public void Excluded_tags_of_the_wrong_type_make_the_file_corrupt()
+    {
+        WriteFile("""{ "excludedTags": "people" }""");
+
+        Assert.Equal(AppSettings.Default, new JsonSettingsStore(SettingsPath).Load());
+        Assert.True(File.Exists(SettingsPath + ".bak"));
+    }
+
+    [Fact]
+    public void Settings_compare_excluded_tags_by_content()
+    {
+        var a = AppSettings.Default with { ExcludedTags = ["people"] };
+        var b = AppSettings.Default with { ExcludedTags = new List<string> { "people" } };
+
+        Assert.Equal(a, b);
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+        Assert.NotEqual(a, AppSettings.Default);
+        Assert.Empty((AppSettings.Default with { ExcludedTags = null! }).ExcludedTags);
     }
 }

@@ -1,3 +1,4 @@
+using Salter.Core.Feed;
 using Salter.Core.Wallhaven;
 
 namespace Salter.Core.Settings;
@@ -21,6 +22,16 @@ public enum ThemePreference
 public sealed record AppSettings(string DownloadFolder, bool LaunchAtStartup, ThemePreference Theme, Purity Purity)
 {
     /// <summary>
+    /// Gets the tags whose wallpapers the feed leaves out, normalized as described by <see cref="TagExclusions"/>.
+    /// Empty by default; <see langword="null"/> is stored as empty.
+    /// </summary>
+    public IReadOnlyList<string> ExcludedTags
+    {
+        get;
+        init => field = value ?? [];
+    } = [];
+
+    /// <summary>
     /// The settings used before the user changes anything: downloads go to <c>Pictures\Salt.er</c>, no start at
     /// sign-in, system theme, SFW only.
     /// </summary>
@@ -36,5 +47,32 @@ public sealed record AppSettings(string DownloadFolder, bool LaunchAtStartup, Th
         }
 
         return Path.Combine(pictures, "Salt.er");
+    }
+
+    /// <summary>Compares all settings; <see cref="ExcludedTags"/> are compared by content, in order.</summary>
+    /// <param name="other">The settings to compare with.</param>
+    /// <returns><see langword="true"/> if both hold the same values.</returns>
+    public bool Equals(AppSettings? other) =>
+        other is not null
+        && string.Equals(DownloadFolder, other.DownloadFolder, StringComparison.Ordinal)
+        && LaunchAtStartup == other.LaunchAtStartup
+        && Theme == other.Theme
+        && Purity == other.Purity
+        && ExcludedTags.SequenceEqual(other.ExcludedTags, StringComparer.Ordinal);
+
+    /// <inheritdoc/>
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(DownloadFolder, StringComparer.Ordinal);
+        hash.Add(LaunchAtStartup);
+        hash.Add(Theme);
+        hash.Add(Purity);
+        foreach (var tag in ExcludedTags)
+        {
+            hash.Add(tag, StringComparer.Ordinal);
+        }
+
+        return hash.ToHashCode();
     }
 }

@@ -17,8 +17,9 @@ public class FeedRequestFactoryTests
         Purity purity = Purity.Sfw,
         int page = 1,
         string? seed = null,
-        FeedRequestFactory? factory = null) =>
-        (factory ?? Factory).Create(GenreOf(genre), text, sorting, filters ?? new FeedFilters(), purity, page, seed);
+        FeedRequestFactory? factory = null,
+        IEnumerable<string>? excluded = null) =>
+        (factory ?? Factory).Create(GenreOf(genre), text, sorting, filters ?? new FeedFilters(), purity, page, seed, excluded);
 
     [Fact]
     public void Catalog_lists_genres_in_order_with_all_as_default()
@@ -150,5 +151,43 @@ public class FeedRequestFactoryTests
     public void Page_below_one_is_rejected()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => Create(page: 0));
+    }
+
+    [Fact]
+    public void Excluded_tags_follow_the_genre_tag()
+    {
+        Assert.Equal("nature -people -car", Create("nature", excluded: ["people", "car"]).Text);
+    }
+
+    [Fact]
+    public void Excluded_tags_follow_the_search_text()
+    {
+        Assert.Equal("cyberpunk city -people", Create(text: " cyberpunk city ", excluded: ["people"]).Text);
+    }
+
+    [Fact]
+    public void Excluded_tags_alone_form_the_text_of_a_category_genre()
+    {
+        var query = Create("all", excluded: [" People ", "#car", "people"]);
+
+        Assert.Equal("-people -car", query.Text);
+        Assert.Equal(Categories.General | Categories.Anime, query.Categories);
+    }
+
+    [Fact]
+    public void Invalid_excluded_tags_are_dropped()
+    {
+        Assert.Equal("nature", Create("nature", excluded: ["digital art", "", "a&b"]).Text);
+        Assert.Null(Create("all", excluded: []).Text);
+    }
+
+    [Fact]
+    public void Excluded_tags_build_the_exact_query_string()
+    {
+        var query = Create("nature", sorting: Sorting.Latest, filters: new FeedFilters(Resolution: ResolutionFilter.Any), excluded: ["people", "car"]);
+
+        Assert.Equal(
+            "search?q=nature%20-people%20-car&categories=100&purity=100&sorting=date_added&page=1",
+            QueryStringBuilder.Build(query));
     }
 }

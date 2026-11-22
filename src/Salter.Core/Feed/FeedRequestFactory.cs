@@ -31,6 +31,10 @@ public sealed class FeedRequestFactory
     /// <param name="purity">The purity levels to include.</param>
     /// <param name="page">The 1-based page number.</param>
     /// <param name="seed">The random seed; kept only for <see cref="Sorting.Random"/>.</param>
+    /// <param name="excludedTags">
+    /// Tags whose wallpapers are left out, appended to the search text as <c>-tag</c> terms (see
+    /// <see cref="TagExclusions"/>); <see langword="null"/> or empty for none.
+    /// </param>
     /// <returns>The query.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="genre"/> or <paramref name="filters"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="page"/> is less than 1.</exception>
@@ -41,7 +45,8 @@ public sealed class FeedRequestFactory
         FeedFilters filters,
         Purity purity,
         int page,
-        string? seed)
+        string? seed,
+        IEnumerable<string>? excludedTags = null)
     {
         ArgumentNullException.ThrowIfNull(genre);
         ArgumentNullException.ThrowIfNull(filters);
@@ -53,7 +58,7 @@ public sealed class FeedRequestFactory
             : (text, Categories.General | Categories.Anime);
 
         return new SearchQuery(
-            queryText,
+            TagExclusions.AppendTo(queryText, excludedTags),
             categories,
             purity,
             sorting,

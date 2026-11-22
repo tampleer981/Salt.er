@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Salter.Core.Feed;
 using Salter.Core.Wallhaven;
 
 namespace Salter.Core.Settings;
@@ -65,7 +66,11 @@ public sealed class JsonSettingsStore : ISettingsStore
             string.IsNullOrWhiteSpace(dto.DownloadFolder) ? defaults.DownloadFolder : dto.DownloadFolder,
             dto.LaunchAtStartup ?? defaults.LaunchAtStartup,
             dto.Theme is { } theme && Enum.IsDefined(theme) ? theme : defaults.Theme,
-            dto.Purity is { } purity && purity != 0 && (purity & ~AllPurities) == 0 ? purity : defaults.Purity);
+            dto.Purity is { } purity && purity != 0 && (purity & ~AllPurities) == 0 ? purity : defaults.Purity)
+        {
+            // Files written before exclusions existed have none; invalid or duplicate entries are dropped.
+            ExcludedTags = TagExclusions.NormalizeAll(dto.ExcludedTags),
+        };
     }
 
     private void TryBackUpCorruptFile()
@@ -93,6 +98,7 @@ public sealed class JsonSettingsStore : ISettingsStore
             LaunchAtStartup = settings.LaunchAtStartup,
             Theme = settings.Theme,
             Purity = settings.Purity,
+            ExcludedTags = [.. settings.ExcludedTags],
         };
         var tempPath = _filePath + ".tmp";
         using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
@@ -114,6 +120,8 @@ internal sealed class SettingsDto
     public ThemePreference? Theme { get; set; }
 
     public Purity? Purity { get; set; }
+
+    public List<string?>? ExcludedTags { get; set; }
 }
 
 [JsonSourceGenerationOptions(
