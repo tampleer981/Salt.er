@@ -88,6 +88,15 @@ public sealed partial class App : Application
 
     private void Start()
     {
+        // First, and before any UI: this process holds the single-instance key, so applying an update that an
+        // earlier session downloaded cannot end another running copy. The updater restarts into the new version.
+        _updates = _services.GetRequiredService<UpdateService>();
+        if (_updates.ApplyPendingAndRestart(_startInBackground))
+        {
+            ExitApp();
+            return;
+        }
+
         _flyout = _services.GetRequiredService<FlyoutWindow>();
         SetBackdrop(_flyout);
         // Resolved here, on the UI thread: the toast view model captures this thread's synchronization context.
@@ -129,7 +138,6 @@ public sealed partial class App : Application
         _started = true;
 
         // Last, so a slow or failing update check can never delay or break startup.
-        _updates = _services.GetRequiredService<UpdateService>();
         _updates.Start();
     }
 

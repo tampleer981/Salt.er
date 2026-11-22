@@ -116,11 +116,21 @@ folder; Velopack manages `current\`, `packages\` and `Update.exe`, and the
 app's files do not overlap with them. The app always runs from
 `current\Salter.App.exe`, so the Run key entry survives updates.
 
-`UpdateService` runs only when Velopack reports the copy as installed. At
-startup it checks the repository's GitHub releases in the background and
-downloads a newer stable release. When the user exits from the tray menu it
-starts the updater, which applies the update after the process ends. Failures
-are logged only.
+`UpdateService` runs only when Velopack reports the copy as installed. It checks
+the repository's GitHub releases in the background at startup and every six
+hours, and downloads a newer stable release. A downloaded update is applied with
+no user action at whichever comes first:
+
+- **Next start.** First thing in `App.Start`, once the process holds the
+  single-instance key and before any UI exists, the app starts the updater with
+  restart enabled and exits. The updater applies the update and starts the new
+  version with the same launch mode (`--background` for the sign-in entry).
+  Velopack's own apply-on-startup is off because it runs before the
+  single-instance check and could end a running copy.
+- **Exit from the tray menu.** The updater applies the update after the process
+  ends, without restarting.
+
+Failures are logged only.
 
 ## Single instance
 

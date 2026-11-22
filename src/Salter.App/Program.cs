@@ -15,8 +15,8 @@ internal static class Program
     {
         // First: Velopack runs its install, update and uninstall hooks here, and those end the process.
         VelopackApp.Build()
-            // Not at startup: a second launch would apply it and so end the running instance. UpdateService applies a
-            // downloaded update when the app exits instead.
+            // Not here: a second launch would apply it and so end the running instance. App applies a downloaded
+            // update at startup once it holds the single-instance key, and UpdateService also applies one on exit.
             .SetAutoApplyOnStartup(false)
             // Uninstalling deletes the app folder; a sign-in entry left behind would start a missing executable, and a
             // stored API key would outlive the app.
