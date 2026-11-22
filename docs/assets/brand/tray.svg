@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="feed" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffa6d9"/>
+      <stop offset="0.30" stop-color="#ffb38a"/>
+      <stop offset="0.48" stop-color="#f2588f"/>
+      <stop offset="0.62" stop-color="#4a1f4f"/>
+      <stop offset="0.70" stop-color="#c9a4ff"/>
+      <stop offset="0.86" stop-color="#8a5cf0"/>
+      <stop offset="1" stop-color="#4b2f9e"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.45"/>
+      <stop offset="0.35" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="12" y="4" width="40" height="56" rx="10" fill="url(#feed)"/>
+  <rect x="12" y="4" width="40" height="56" rx="10" fill="url(#sheen)"/>
+  <rect x="13" y="5" width="38" height="54" rx="9" fill="none" stroke="#fff" stroke-opacity="0.85" stroke-width="2"/>
+</svg>
