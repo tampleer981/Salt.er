@@ -68,6 +68,9 @@ The app has no window of its own; look for the icon in the notification area
   through `ILocalizer`.
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
 - Record architectural decisions as ADRs in [adr](adr/README.md).
+- UI follows the Windows 11 Fluent design language in [design.md](design.md):
+  WinUI default controls and theme resources, and the motion rules there. Never
+  animate the opacity, scale or translation of a control template part.
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md) for the pull request process.
 
@@ -79,8 +82,17 @@ runs `tools/screenshots/Capture-Screenshots.ps1` on a Windows runner. The script
 launches the app, seeds `settings.json` for each theme, drives the UI through
 UI Automation by `AutomationProperties.Name`, saves PNGs and a
 `manifest.json`, and the workflow commits them back to the branch. It runs on
-manual dispatch and when the capture tooling changes on a branch other than
-`main`.
+manual dispatch, and on pushes to branches other than `main` and pull requests
+to `main` that change the app, the presentation layer or the capture tooling.
+Pull request runs commit nothing.
+
+The same run is the UI crash test. The script turns Windows animation effects
+on first (hosted runners have them off, which hides crashes in animated
+controls), and after the captures it uses every interactive control once per
+theme. After each state and step it checks that the app is still running and
+that its log has no `[FTL]` or `Unhandled` entry; on a crash it prints the app
+log and the Windows Application event log entries and fails the run. CI's
+build job also opens the flyout with animation effects on for ten seconds.
 
 When the UI changes, update the script if an automation name changed, run the
 workflow, and review the new images before merging. Controls need a stable

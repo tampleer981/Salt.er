@@ -27,6 +27,11 @@ for startup), it depends on an interface in `Salter.Presentation/Abstractions`
 and `Salter.App` supplies the Windows implementation. Secrets follow the same
 pattern: `ISecretStore` is in Core, `CredentialSecretStore` in the App.
 
+The views in `Salter.App/Views` use the WinUI default controls and theme
+resources. Styles based on the defaults are in `App.xaml`, custom templates in
+`Styles/Controls.xaml`, the few app colours in `Styles/Glass.xaml`, and all
+implicit animations go through `Views/Motion.cs`; see [design.md](design.md).
+
 ### Why the view models are not in the App project
 
 View models live in `Salter.Presentation` rather than `Salter.App`. A WinUI 3
