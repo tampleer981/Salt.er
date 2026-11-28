@@ -565,7 +565,22 @@ function Get-Pattern([AutomationElement] $Element, [AutomationPattern] $Pattern)
     return $null
 }
 
+function Show-Element([AutomationElement] $Element) {
+    # An element scrolled out of its ScrollViewer has an empty bounding rectangle; bring it into view first.
+    $scrollItem = Get-Pattern $Element ([ScrollItemPattern]::Pattern)
+    if ($null -ne $scrollItem) {
+        $scrollItem.ScrollIntoView()
+        Start-Sleep -Milliseconds 300
+    }
+
+    $rect = $Element.Current.BoundingRectangle
+    if ($rect.IsEmpty -or [double]::IsNaN($rect.Width) -or $rect.Width -le 0 -or $rect.Height -le 0) {
+        throw "'$($Element.Current.Name)' is not on screen, even after scrolling it into view."
+    }
+}
+
 function Invoke-Click([AutomationElement] $Element) {
+    Show-Element $Element
     $center = Get-Center $Element
     Write-Step "  mouse click at ($($center.X), $($center.Y)) on '$($Element.Current.Name)'"
     [ScreenshotNative]::Click($center.X, $center.Y)
