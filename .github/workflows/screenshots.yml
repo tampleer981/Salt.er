@@ -1,12 +1,23 @@
 name: Screenshots
 
-# Captures real screenshots of the app for the documentation and commits them to the branch the run is for.
-# Runs on demand, and on pushes that change the capture tooling (never on main).
+# Captures real screenshots of the app for the documentation and commits them to the branch the run is for. The
+# capture also drives every interactive control with Windows animation effects on, and fails if the app crashes,
+# so it runs whenever the UI or the capture tooling changes: on pushes to branches other than main, and on pull
+# requests to main (which only check; they commit nothing).
 on:
   workflow_dispatch:
   push:
     branches-ignore: [main]
     paths:
+      - src/Salter.App/**
+      - src/Salter.Presentation/**
+      - tools/screenshots/**
+      - .github/workflows/screenshots.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - src/Salter.App/**
+      - src/Salter.Presentation/**
       - tools/screenshots/**
       - .github/workflows/screenshots.yml
 
@@ -54,8 +65,10 @@ jobs:
             exit 1
           }
 
-      # The script also switches the display to 1920x1080 when the runner's display allows it.
+      # The script also switches the display to 1920x1080 when the runner's display allows it, and turns Windows
+      # animation effects on. It exits with 1 when the app crashes.
       - name: Capture screenshots
+        id: capture
         shell: pwsh
         # Names any missing XAML resource or failed binding in the app log the script prints on failure.
         env:
@@ -74,9 +87,11 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      # Also after a failed capture: the diagnostics folder holds full-screen images of the failed states.
+      # Only after a successful capture: a crashed run would replace the documentation with a partial set. Its
+      # diagnostics (full-screen images of the failed states) are in the uploaded artifact instead. Pull request runs
+      # (refs/pull/...) commit nothing.
       - name: Commit screenshots
-        if: ${{ !cancelled() && github.ref != 'refs/heads/main' && startsWith(github.ref, 'refs/heads/') }}
+        if: ${{ !cancelled() && steps.capture.outcome == 'success' && github.ref != 'refs/heads/main' && startsWith(github.ref, 'refs/heads/') }}
         shell: pwsh
         run: |
           git config user.name 'github-actions[bot]'

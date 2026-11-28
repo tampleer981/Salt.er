@@ -6,7 +6,12 @@
 .DESCRIPTION
     Starts the published app, drives its flyout with UI Automation and captures each screen with GDI. Run it on a
     Windows desktop session nobody uses at the same time (for example a GitHub-hosted Windows runner): it changes
-    the wallpaper, the display resolution and the app's settings, and stops any running Salt.er.
+    the wallpaper, the display resolution, the Windows animation effects and the app's settings, and stops any
+    running Salt.er.
+
+    It is also the app's UI crash test. Windows animation effects are turned on first, as on a typical desktop
+    (hosted runners have them off, which hides crashes in animated controls), and every interactive control is used
+    at least once per theme.
 
     For each theme (Dark, Light) it writes settings.json with that theme and the "people" tag excluded, starts the
     app and captures:
@@ -20,11 +25,21 @@
                                   "people" exclusion chip shown
       settings-<theme>.png        the settings screen
     Stray system dialogs are closed first, and focus rectangles and hover states are cleared before each capture
-    except where the state shows them.
-    and writes manifest.json listing the files and their captions.
+    except where the state shows them. It writes manifest.json listing the files and their captions.
 
-    A state that fails is logged, a full-screen image of the moment is saved under diagnostics/, and the script
-    moves on. An optional state that fails only logs a warning. It exits with 1 only if no screenshot was produced.
+    After the captures, each theme run exercises every interactive control: three genre pills, every sort tab,
+    refresh, the filters toggle, ratio, resolution and colour choices, adding and removing an excluded tag, Ctrl+K
+    and Escape, the details with their display choice (when there are several displays), the start with Windows
+    switch, the theme switch (Light, then Dark) and back navigation.
+
+    After every state and step the script checks that the app is still running and that its log since the start
+    has no fatal ([FTL]) or "Unhandled" entry. If either check fails it saves a full-screen image under
+    diagnostics/, prints the last 60 lines of the app log and the recent Application Error and .NET Runtime events
+    of the Windows Application log, and exits with 1: a crash always fails the run.
+
+    Any other state that fails is logged, a full-screen image of the moment is saved under diagnostics/, and the
+    script moves on. An optional state that fails only logs a warning. Without a crash, it exits with 1 only if no
+    screenshot was produced.
 
 .PARAMETER AppPath
     Path to the published Salter.App.exe.
@@ -75,15 +90,33 @@ if (-not $IsWindows) {
 $ProcessName = 'Salter.App'
 $WindowTitle = 'Salt.er'
 $Ui = @{
-    Settings     = 'Settings'           # Feed_Settings: settings button in the feed header
-    Filters      = 'Filters'            # Feed_Filters: filters toggle in the feed header
-    Search       = 'Search wallpapers'  # Search_Name: the search box
-    Back         = 'Back'               # Detail_Back: back button of the detail and settings screens
-    SetWallpaper = 'Set as wallpaper'   # Detail_Set: apply button text in the detail screen
-    Genre        = 'Nature'             # Genre_nature: a genre chip
-    Resolution   = '4K+'                # Filter_4K: a minimum resolution chip in the filters panel
-    SettingsHead = 'Settings'           # Settings_Title: heading of the settings screen
+    Settings        = 'Settings'           # Feed_Settings: settings button in the feed header
+    Filters         = 'Filters'            # Feed_Filters: filters toggle in the feed header
+    Refresh         = 'Refresh'            # Feed_Refresh: the floating refresh button
+    Search          = 'Search wallpapers'  # Search_Name: the search box
+    Back            = 'Back'               # Detail_Back: back button of the detail and settings screens
+    SetWallpaper    = 'Set as wallpaper'   # Detail_Set: apply button of the detail screen (and the quick Set button)
+    Genre           = 'Nature'             # Genre_nature: a genre pill
+    Resolution      = '4K+'                # Filter_4K: a minimum resolution pill in the filters panel
+    ExcludeBox      = 'Tag to exclude'     # Filter_ExcludeName: the exclusion box in the filters panel
+    RemoveFormat    = 'Remove {0}'         # Filter_RemoveExclusion: the x of an exclusion chip
+    AllDisplays     = 'All displays'       # Detail_AllDisplays: first segment of the display choice
+    LaunchAtStartup = 'Start with Windows' # Settings_LaunchAtStartup: the switch in the settings
+    ThemeLight      = 'Light'              # Settings_ThemeLight: theme segment
+    ThemeDark       = 'Dark'               # Settings_ThemeDark: theme segment
+    SettingsHead    = 'Settings'           # Settings_Title: heading of the settings screen
 }
+# Exercised once per theme: genre pills (Genre_*), sort tabs (Sort_*, a SelectorBar), filter values (ratio labels,
+# Filter_Native, Color_*).
+$ExerciseGenres = @('Anime', 'Space', 'All')
+$ExerciseSortings = @('Latest', 'Hot', 'Random', 'Toplist')
+$ExerciseRatios = @('21:9', '16:9')
+$ExerciseResolutions = @('Native')
+$ExerciseColors = @('Blue', 'Teal')
+$ExerciseExclusion = 'cars'
+# A crash shows in the app log as a fatal entry or an unhandled exception (App.xaml.cs).
+$CrashLogPattern = '\[FTL\]|Unhandled'
+
 $SearchQuery = 'mountains'
 # Seeded into settings.json, so the filters panel shows an exclusion chip ("#people").
 $ExcludedTag = 'people'
@@ -94,9 +127,9 @@ $ToastSuccessPattern = '^Applied to '
 $ToastFailurePattern = "^Couldn't set the wallpaper"
 
 $Captions = [ordered]@{
-    'hero'           = 'Salt.er opens as a glass flyout above the tray.'
+    'hero'           = 'Salt.er opens as a translucent Windows 11 flyout above the tray.'
     'feed'           = 'The feed (Nature genre, Toplist order) with the Set button shown on the wallpaper under the pointer.'
-    'genre'          = 'Genre chips, sort tabs and the Nature genre selected.'
+    'genre'          = 'Genre pills, sort tabs and the Nature genre selected.'
     'search-filters' = 'Searching for "mountains" (all genres) with the filters panel open, the 4K+ resolution chosen and the people tag excluded.'
     'detail'         = 'Wallpaper details: preview, tags and the Set as wallpaper button.'
     'applied'        = 'The confirmation toast after setting a wallpaper.'
@@ -108,6 +141,12 @@ $script:Produced = [System.Collections.Generic.List[object]]::new()
 $script:Failures = [System.Collections.Generic.List[string]]::new()
 $script:WallpaperFile = $null
 $script:WallpaperInfo = $null
+$script:RunStarted = Get-Date
+# The app process of the current theme run, the log it writes and how long that log was when it started.
+$script:AppProcess = $null
+$script:LogBaseline = $null
+# Set once a crash is detected: the run then stops and fails.
+$script:Crash = $null
 
 # --- Logging -------------------------------------------------------------------------------------------------------
 
@@ -184,6 +223,18 @@ function Set-DesktopAppearance {
     }
 }
 
+function Enable-AnimationEffects {
+    # Hosted runners turn animation effects off, which skips every implicit transition and so hides the crashes
+    # they can cause. A crash here fails the run, so this is not best effort.
+    [ScreenshotNative]::SetAnimationEffects($true)
+    $clientArea = [ScreenshotNative]::ClientAreaAnimationsEnabled
+    $uiEffects = [ScreenshotNative]::UiEffectsEnabled
+    Write-Step "Animation effects: client area animations $clientArea, UI effects $uiEffects"
+    if (-not $clientArea) {
+        throw 'Could not turn on client area animations (SPI_SETCLIENTAREAANIMATION).'
+    }
+}
+
 function Get-DesktopWallpaper {
     # One SFW general wallpaper from wallhaven's toplist; the default wallpaper stays if anything fails.
     $search = 'https://wallhaven.cc/api/v1/search?categories=100&purity=100&sorting=toplist&topRange=1M' +
@@ -251,41 +302,143 @@ function Write-AppSettings([string] $Theme) {
 function Stop-App {
     $running = @(Get-Process -Name $ProcessName -ErrorAction SilentlyContinue)
     if ($running.Count -eq 0) {
+        $script:AppProcess = $null
         return
     }
 
     Write-Step "Stopping $($running.Count) running $ProcessName process(es)"
+    # Stopped on purpose: not a crash.
+    $script:AppProcess = $null
     $running | Stop-Process -Force
     $running | Wait-Process -Timeout 20 -ErrorAction SilentlyContinue
 }
 
-function Start-App {
+function Start-App([switch] $Primary) {
     Write-Step "Starting $AppPath"
-    # Without --background the app opens its flyout; a second start while it runs opens the running flyout again.
-    Start-Process -FilePath $AppPath -WorkingDirectory (Split-Path -Parent $AppPath) | Out-Null
-}
-
-function Write-AppLog {
-    $logs = Join-Path (Get-AppDataFolder) 'logs'
-    $latest = Get-ChildItem -LiteralPath $logs -Filter '*.log' -ErrorAction SilentlyContinue |
-        Sort-Object -Property LastWriteTime | Select-Object -Last 1
-    if ($null -eq $latest) {
-        Write-Step "No app log in $logs"
-        return
+    if ($Primary) {
+        # The log so far belongs to earlier runs; only what this process writes is checked for crashes.
+        $log = Get-LatestLog
+        $script:LogBaseline = if ($null -ne $log) { [pscustomobject]@{ Path = $log.FullName; Length = $log.Length } }
     }
 
-    Write-Step "Last lines of the app log $($latest.FullName):"
+    # Without --background the app opens its flyout; a second start while it runs opens the running flyout again
+    # and exits.
+    $process = Start-Process -FilePath $AppPath -WorkingDirectory (Split-Path -Parent $AppPath) -PassThru
+    if ($Primary) {
+        # Holding the handle keeps the exit code readable after the process ends.
+        $null = $process.Handle
+        $script:AppProcess = $process
+        Write-Step "  app process $($process.Id)"
+    }
+}
+
+function Get-LatestLog {
+    $logs = Join-Path (Get-AppDataFolder) 'logs'
+    return Get-ChildItem -LiteralPath $logs -Filter '*.log' -File -ErrorAction SilentlyContinue |
+        Sort-Object -Property LastWriteTime | Select-Object -Last 1
+}
+
+function Read-SharedFile([string] $Path) {
     # The app keeps the file open; share it for reading.
     $stream = [System.IO.FileStream]::new(
-        $latest.FullName, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        $Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
     try {
-        $text = [System.IO.StreamReader]::new($stream).ReadToEnd()
+        return [System.IO.StreamReader]::new($stream).ReadToEnd()
     }
     finally {
         $stream.Dispose()
     }
+}
 
-    $text -split "`r?`n" | Select-Object -Last 60 | ForEach-Object { Write-Host "    $_" }
+function Read-NewAppLog {
+    # What the app logged since this theme run started it: the rest of the file it started with, or all of a newer
+    # one (the log rolls over daily).
+    $latest = Get-LatestLog
+    if ($null -eq $latest) {
+        return ''
+    }
+
+    $text = Read-SharedFile $latest.FullName
+    if ($null -ne $script:LogBaseline -and $script:LogBaseline.Path -eq $latest.FullName) {
+        # The length was taken in bytes; the log is UTF-8, so skip as many bytes, not characters.
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
+        $skip = [Math]::Min([int64]$bytes.Length, [int64]$script:LogBaseline.Length)
+        return [System.Text.Encoding]::UTF8.GetString($bytes, [int]$skip, [int]($bytes.Length - $skip))
+    }
+
+    return $text
+}
+
+function Write-AppLog {
+    $latest = Get-LatestLog
+    if ($null -eq $latest) {
+        Write-Step "No app log in $(Join-Path (Get-AppDataFolder) 'logs')"
+        return
+    }
+
+    Write-Step "Last lines of the app log $($latest.FullName):"
+    (Read-SharedFile $latest.FullName) -split "`r?`n" | Select-Object -Last 60 | ForEach-Object { Write-Host "    $_" }
+}
+
+function Write-CrashEvents {
+    # Native crashes (for example 0xc0000005 in Microsoft.ui.xaml.dll) leave an Application Error event; unhandled
+    # managed exceptions a .NET Runtime one.
+    try {
+        $filter = @{
+            LogName      = 'Application'
+            ProviderName = 'Application Error', '.NET Runtime'
+            StartTime    = $script:RunStarted
+        }
+        $events = @(Get-WinEvent -FilterHashtable $filter -MaxEvents 10 -ErrorAction Stop)
+    }
+    catch {
+        Write-Step "No Application Error or .NET Runtime events since the run started ($($_.Exception.Message))"
+        return
+    }
+
+    Write-Step "Application Error and .NET Runtime events since the run started ($($events.Count)):"
+    foreach ($entry in $events) {
+        Write-Host ('    {0:HH:mm:ss} {1} (id {2}):' -f $entry.TimeCreated, $entry.ProviderName, $entry.Id)
+        $entry.Message -split "`r?`n" | Select-Object -First 25 | ForEach-Object { Write-Host "      $_" }
+    }
+}
+
+function Get-CrashReason {
+    $reasons = [System.Collections.Generic.List[string]]::new()
+    $process = $script:AppProcess
+    if ($null -ne $process) {
+        $process.Refresh()
+        if ($process.HasExited) {
+            $code = try { '0x{0:X8}' -f $process.ExitCode } catch { 'unknown' }
+            $reasons.Add("the app process $($process.Id) exited (exit code $code)")
+        }
+    }
+
+    $log = Read-NewAppLog
+    $hits = @([regex]::Matches($log, "^.*(?:$CrashLogPattern).*$", 'Multiline') | ForEach-Object { $_.Value.Trim() })
+    if ($hits.Count -gt 0) {
+        $reasons.Add("the app log has $($hits.Count) fatal or unhandled line(s), the first: $($hits[0])")
+    }
+
+    return $reasons
+}
+
+function Assert-AppAlive([string] $Context) {
+    if ($null -ne $script:Crash) {
+        throw "The app crashed earlier: $($script:Crash)"
+    }
+
+    $reasons = @(Get-CrashReason)
+    if ($reasons.Count -eq 0) {
+        return
+    }
+
+    $script:Crash = "$Context`: $($reasons -join '; ')"
+    Write-Host "::error::The app crashed $($script:Crash)"
+    Save-Diagnostics "crash"
+    Write-AppLog
+    Write-CrashEvents
+    throw "The app crashed $($script:Crash)"
 }
 
 # --- UI Automation -------------------------------------------------------------------------------------------------
@@ -345,6 +498,8 @@ function Get-Flyout {
         return $window
     }
 
+    # A crashed app has no flyout either; starting it again would hide the crash.
+    Assert-AppAlive 'while its flyout was hidden'
     Write-Problem 'The flyout is not visible; starting the app again to reopen it.'
     Start-App
     return Wait-Until -Description 'the flyout window' -TimeoutSeconds 30 -Condition { Get-FlyoutWindow }
@@ -717,8 +872,11 @@ function Invoke-State([string] $Name, [scriptblock] $Action, [switch] $Optional)
     Write-Step "State $Name"
     try {
         & $Action
+        Assert-AppAlive "in state $Name"
     }
     catch {
+        # A crash fails the run at once; other failures are recorded and the run moves on.
+        Assert-AppAlive "in state $Name"
         if ($Optional) {
             # Nice to have, and not reliably reachable on every runner: no failure, no diagnostics.
             Write-Host "::warning::Optional state $Name skipped: $($_.Exception.Message)"
@@ -757,15 +915,16 @@ function Select-Genre([string] $Genre) {
     Wait-FeedReload
 }
 
-function Submit-Search([string] $Query) {
+function Submit-Text([string] $BoxName, [string] $Text) {
+    # Types into a text box and presses Enter (search and exclusions have no submit button), so the box needs the
+    # keyboard focus and the flyout the foreground: UI Automation focus first, a click on the box if that leaves
+    # another window in front.
     $window = Get-Flyout
-    $box = Wait-Until -Description 'the search box' -Condition {
-        Find-Named (Get-Flyout) ([ControlType]::Edit) $Ui.Search
+    $box = Wait-Until -Description "the '$BoxName' box" -Condition {
+        Find-Named (Get-Flyout) ([ControlType]::Edit) $BoxName
     }
     $handle = [IntPtr]$window.Current.NativeWindowHandle
 
-    # Enter submits the search (the box has no submit button), so the box needs the keyboard focus and the flyout
-    # the foreground: UI Automation focus first, a click on the box if that leaves another window in front.
     $path = 'UI Automation focus'
     try {
         $box.SetFocus()
@@ -776,7 +935,7 @@ function Submit-Search([string] $Query) {
 
     Start-Sleep -Milliseconds 300
     if ([ScreenshotNative]::ForegroundWindow() -ne $handle) {
-        $path = 'click on the search box'
+        $path = 'click on the box'
         Invoke-Click $box
         Move-CursorAway
         Start-Sleep -Milliseconds 300
@@ -784,19 +943,218 @@ function Submit-Search([string] $Query) {
 
     $value = Get-Pattern $box ([ValuePattern]::Pattern)
     if ($null -ne $value) {
-        $value.SetValue($Query)
+        $value.SetValue($Text)
     }
     else {
-        [ScreenshotNative]::TypeText($Query)
+        [ScreenshotNative]::TypeText($Text)
     }
 
     if (-not [ScreenshotNative]::BringToForeground($handle)) {
-        Write-Problem 'The flyout is not in the foreground; Enter may not reach the search box.'
+        Write-Problem 'The flyout is not in the foreground; Enter may not reach the box.'
     }
 
-    Write-Step "  searching for '$Query': Enter after $path"
+    Write-Step "  '$Text' into '$BoxName': Enter after $path"
     [ScreenshotNative]::PressKey(0x0D)
+}
+
+function Submit-Search([string] $Query) {
+    Submit-Text $Ui.Search $Query
     Wait-FeedReload
+}
+
+# --- Exercising every control --------------------------------------------------------------------------------------
+
+function Invoke-Step([string] $Description, [scriptblock] $Action) {
+    # One interaction, then a pause for its animations to run, then the crash check. A step that fails without a
+    # crash is recorded and the next one runs.
+    Write-Step "  step: $Description"
+    try {
+        & $Action
+        Start-Sleep -Milliseconds 600
+        Assert-AppAlive "after '$Description'"
+    }
+    catch {
+        Assert-AppAlive "after '$Description'"
+        $script:Failures.Add("step: $Description")
+        Write-Problem "Step '$Description' failed: $($_.Exception.Message)"
+    }
+}
+
+function Find-Choice([string] $Name) {
+    # A pill, tab or segment by its name: a radio button, a SelectorBar item (a list item or tab item) or a button,
+    # preferring one that can be selected; never the text inside it, which has the same name.
+    $condition = [PropertyCondition]::new([AutomationElement]::NameProperty, $Name)
+    $candidates = @((Get-Flyout).FindAll([TreeScope]::Descendants, $condition) |
+        Where-Object { $_.Current.ControlType.ProgrammaticName -ne 'ControlType.Text' })
+    $selectable = $candidates | Where-Object { $null -ne (Get-Pattern $_ ([SelectionItemPattern]::Pattern)) } |
+        Select-Object -First 1
+    if ($null -ne $selectable) {
+        return $selectable
+    }
+
+    $first = $candidates | Select-Object -First 1
+    if ($null -eq $first) {
+        throw "No control named '$Name' is shown."
+    }
+
+    return $first
+}
+
+function Select-Choice([string] $Name) {
+    Select-Element (Find-Choice $Name)
+}
+
+function Set-FiltersOpen([bool] $Open) {
+    $toggle = Find-Named (Get-Flyout) ([ControlType]::Button) $Ui.Filters
+    if ($null -eq $toggle) {
+        throw "No '$($Ui.Filters)' button found."
+    }
+
+    $pattern = Get-Pattern $toggle ([TogglePattern]::Pattern)
+    if ($null -eq $pattern) {
+        Invoke-Click $toggle
+        return
+    }
+
+    $isOpen = $pattern.Current.ToggleState -eq [ToggleState]::On
+    if ($isOpen -ne $Open) {
+        Write-Step "  toggle '$($Ui.Filters)' (open: $isOpen -> $Open)"
+        $pattern.Toggle()
+    }
+}
+
+function Invoke-Exercises([string] $Theme) {
+    Show-Feed
+
+    foreach ($genre in $ExerciseGenres) {
+        Invoke-Step "genre $genre" { Select-Choice $genre; Start-Sleep -Milliseconds 900 }
+    }
+
+    foreach ($sorting in $ExerciseSortings) {
+        Invoke-Step "sort tab $sorting" { Select-Choice $sorting; Start-Sleep -Milliseconds 900 }
+    }
+
+    Invoke-Step 'refresh' {
+        $refresh = Wait-Until -Description 'the refresh button' -Condition {
+            Find-Named (Get-Flyout) ([ControlType]::Button) $Ui.Refresh
+        }
+        Invoke-Element $refresh
+        Start-Sleep -Milliseconds 900
+    }
+
+    Invoke-Step 'filters toggle (close)' { Set-FiltersOpen $false }
+    Invoke-Step 'filters toggle (open)' {
+        Set-FiltersOpen $true
+        $null = Wait-Until -Description 'the filters panel' -TimeoutSeconds 5 -Condition {
+            Find-Named (Get-Flyout) ([ControlType]::RadioButton) $Ui.Resolution
+        }
+    }
+
+    foreach ($choice in @($ExerciseRatios) + @($ExerciseResolutions) + @($ExerciseColors)) {
+        Invoke-Step "filter $choice" { Select-Choice $choice; Start-Sleep -Milliseconds 600 }
+    }
+
+    Invoke-Step 'colour cleared by choosing it again' {
+        # Selecting the selected swatch through UI Automation does nothing; a click runs its handler.
+        Invoke-Click (Find-Choice $ExerciseColors[-1])
+    }
+
+    Invoke-Step "exclude #$ExerciseExclusion" {
+        Submit-Text $Ui.ExcludeBox $ExerciseExclusion
+        $null = Wait-Until -Description "the #$ExerciseExclusion chip" -TimeoutSeconds 5 -Condition {
+            Find-Text (Get-Flyout) "^#$ExerciseExclusion$"
+        }
+    }
+
+    Invoke-Step "remove #$ExerciseExclusion" {
+        $name = $Ui.RemoveFormat -f $ExerciseExclusion
+        $remove = Wait-Until -Description "the '$name' button" -TimeoutSeconds 5 -Condition {
+            Find-Named (Get-Flyout) ([ControlType]::Button) $name
+        }
+        Invoke-Element $remove
+        $null = Wait-Until -Description "the #$ExerciseExclusion chip to go" -TimeoutSeconds 5 -Condition {
+            $null -eq (Find-Text (Get-Flyout) "^#$ExerciseExclusion$")
+        }
+    }
+
+    Invoke-Step 'filters toggle (close again)' { Set-FiltersOpen $false }
+
+    Invoke-Step 'Ctrl+K, then Escape' {
+        $handle = [IntPtr](Get-Flyout).Current.NativeWindowHandle
+        $null = [ScreenshotNative]::BringToForeground($handle)
+        [ScreenshotNative]::PressKeyWith(0x11, 0x4B)
+        Start-Sleep -Milliseconds 400
+        # Escape hides the flyout (a focused box may take the first one); starting the app again reopens it.
+        for ($i = 0; $i -lt 3 -and $null -ne (Get-FlyoutWindow); $i++) {
+            [ScreenshotNative]::PressKey(0x1B)
+            Start-Sleep -Milliseconds 700
+        }
+
+        Assert-AppAlive 'after Escape'
+        if ($null -ne (Get-FlyoutWindow)) {
+            throw 'Escape did not hide the flyout.'
+        }
+
+        Start-App
+        $null = Wait-Until -Description 'the flyout window' -TimeoutSeconds 30 -Condition { Get-FlyoutWindow }
+        Wait-Feed -TimeoutSeconds 30
+    }
+
+    Invoke-Step 'open the details' {
+        Invoke-Element (Get-FirstThumbnail (Get-Flyout))
+        $null = Wait-Until -Description 'the detail screen' -Condition {
+            Find-Named (Get-Flyout) ([ControlType]::Button) $Ui.Back
+        }
+    }
+
+    Invoke-Step 'display choice segments' {
+        $segments = @(Find-All (Get-Flyout) ([ControlType]::RadioButton))
+        if ($segments.Count -eq 0) {
+            # Shown only with more than one display.
+            Write-Step "  no display choice: a single display"
+            return
+        }
+
+        foreach ($segment in $segments | Select-Object -Last 2) {
+            Select-Element $segment
+            Start-Sleep -Milliseconds 400
+        }
+
+        Select-Choice $Ui.AllDisplays
+    }
+
+    Invoke-Step 'back from the details' { Show-Feed }
+
+    Invoke-Step 'open the settings' {
+        Invoke-Element (Wait-Until -Description 'the settings button' -Condition {
+                Find-Named (Get-Flyout) ([ControlType]::Button) $Ui.Settings
+            })
+        $null = Wait-Until -Description 'the settings screen' -Condition { Find-Text (Get-Flyout) "^$($Ui.SettingsHead)$" }
+    }
+
+    Invoke-Step 'start with Windows switch' {
+        # The switch is the element of that name with the Toggle pattern (the card's title has the same name).
+        $toggle = Wait-Until -Description "the '$($Ui.LaunchAtStartup)' switch" -Condition {
+            $condition = [PropertyCondition]::new([AutomationElement]::NameProperty, $Ui.LaunchAtStartup)
+            (Get-Flyout).FindAll([TreeScope]::Descendants, $condition) |
+                ForEach-Object { Get-Pattern $_ ([TogglePattern]::Pattern) } |
+                Where-Object { $null -ne $_ } | Select-Object -First 1
+        }
+
+        # On and off again: the run must not leave a Run key entry behind.
+        $toggle.Toggle()
+        Start-Sleep -Milliseconds 600
+        $toggle.Toggle()
+    }
+
+    # Light, then Dark (in the Light run Dark first, so it ends on its own theme); the whole flyout re-themes.
+    $themes = if ($Theme -eq 'Dark') { @($Ui.ThemeLight, $Ui.ThemeDark) } else { @($Ui.ThemeDark, $Ui.ThemeLight) }
+    foreach ($name in $themes) {
+        # A real click: the theme segments act on Click, which selecting through UI Automation may not raise.
+        Invoke-Step "theme $name" { Invoke-Click (Find-Choice $name); Start-Sleep -Milliseconds 900 }
+    }
+
+    Invoke-Step 'back from the settings' { Show-Feed }
 }
 
 function Invoke-Theme([string] $Theme) {
@@ -808,7 +1166,7 @@ function Invoke-Theme([string] $Theme) {
         Set-DesktopWallpaper
         Close-StrayDialogs
         Move-CursorAway
-        Start-App
+        Start-App -Primary
 
         Invoke-State "start-$suffix" {
             $window = Wait-Until -Description 'the flyout window' -TimeoutSeconds 60 -Condition { Get-FlyoutWindow }
@@ -935,6 +1293,9 @@ function Invoke-Theme([string] $Theme) {
             Clear-FocusVisuals
             Save-Flyout 'settings' $Theme
         }
+
+        # After the captures, so the images do not depend on it: every interactive control once.
+        Invoke-State "exercise-$suffix" { Invoke-Exercises $Theme }
     }
     finally {
         Write-AppLog
@@ -959,12 +1320,19 @@ Write-Step "Output: $OutputDir"
 Initialize-Libraries
 Set-ScreenResolution
 Set-DesktopAppearance
+Enable-AnimationEffects
 Get-DesktopWallpaper
 Close-StrayDialogs -ListWindows
 
 try {
     foreach ($theme in 'Dark', 'Light') {
         Invoke-Theme $theme
+    }
+}
+catch {
+    # A crash ends the run; anything else unexpected is rethrown as it is.
+    if ($null -eq $script:Crash) {
+        throw
     }
 }
 finally {
@@ -983,6 +1351,11 @@ Write-Step "Wrote $manifestPath"
 Write-Step "Screenshots: $($script:Produced.Count); failed states: $($script:Failures.Count)"
 foreach ($failure in $script:Failures) {
     Write-Step "  failed: $failure"
+}
+
+if ($null -ne $script:Crash) {
+    Write-Host "::error::The app crashed $($script:Crash). See the app log and Windows events above, and diagnostics/."
+    exit 1
 }
 
 if ($script:Produced.Count -eq 0) {

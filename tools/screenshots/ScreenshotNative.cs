@@ -17,6 +17,10 @@ public static class ScreenshotNative
     private const ushort VirtualKeyMenu = 0x12;
     private const uint SetDesktopWallpaper = 0x0014;
     private const uint UpdateIniFileAndSendChange = 0x01 | 0x02;
+    private const uint GetClientAreaAnimationAction = 0x1042;
+    private const uint SetClientAreaAnimationAction = 0x1043;
+    private const uint GetUiEffectsAction = 0x103E;
+    private const uint SetUiEffectsAction = 0x103F;
     private const int EnumCurrentSettings = -1;
     private const int DisplayFieldsWidthHeight = 0x00080000 | 0x00100000;
     private static readonly IntPtr HwndBroadcast = new IntPtr(0xFFFF);
@@ -100,6 +104,12 @@ public static class ScreenshotNative
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool SystemParametersInfo(uint action, uint param, string value, uint winIni);
 
+    [DllImport("user32.dll", EntryPoint = "SystemParametersInfoW", SetLastError = true)]
+    private static extern bool SystemParametersInfoValue(uint action, uint param, IntPtr value, uint winIni);
+
+    [DllImport("user32.dll", EntryPoint = "SystemParametersInfoW", SetLastError = true)]
+    private static extern bool SystemParametersInfoGet(uint action, uint param, out int value, uint winIni);
+
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
 
@@ -154,6 +164,45 @@ public static class ScreenshotNative
         if (!SystemParametersInfo(SetDesktopWallpaper, 0, path, UpdateIniFileAndSendChange))
         {
             throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+    }
+
+    /// <summary>
+    /// Turns the Windows "Animation effects" setting on or off: client area animations (what
+    /// UISettings.AnimationsEnabled reports, and so what WinUI's implicit transitions follow) and UI effects. Saved
+    /// to the user profile and broadcast, so apps started afterwards see it.
+    /// </summary>
+    public static void SetAnimationEffects(bool enabled)
+    {
+        var value = new IntPtr(enabled ? 1 : 0);
+        if (!SystemParametersInfoValue(SetClientAreaAnimationAction, 0, value, UpdateIniFileAndSendChange))
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+
+        if (!SystemParametersInfoValue(SetUiEffectsAction, 0, value, UpdateIniFileAndSendChange))
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+    }
+
+    /// <summary>Gets whether client area animations are on (SPI_GETCLIENTAREAANIMATION).</summary>
+    public static bool ClientAreaAnimationsEnabled
+    {
+        get
+        {
+            int value;
+            return SystemParametersInfoGet(GetClientAreaAnimationAction, 0, out value, 0) && value != 0;
+        }
+    }
+
+    /// <summary>Gets whether UI effects are on (SPI_GETUIEFFECTS).</summary>
+    public static bool UiEffectsEnabled
+    {
+        get
+        {
+            int value;
+            return SystemParametersInfoGet(GetUiEffectsAction, 0, out value, 0) && value != 0;
         }
     }
 
@@ -256,6 +305,16 @@ public static class ScreenshotNative
     public static void PressKey(ushort virtualKey)
     {
         Send(Key(virtualKey, 0, 0), Key(virtualKey, 0, KeyEventKeyUp));
+    }
+
+    /// <summary>Presses a key while a modifier (for example VK_CONTROL, 0x11) is held.</summary>
+    public static void PressKeyWith(ushort modifier, ushort virtualKey)
+    {
+        Send(
+            Key(modifier, 0, 0),
+            Key(virtualKey, 0, 0),
+            Key(virtualKey, 0, KeyEventKeyUp),
+            Key(modifier, 0, KeyEventKeyUp));
     }
 
     public static void TypeText(string text)
