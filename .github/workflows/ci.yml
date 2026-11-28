@@ -133,6 +133,122 @@ jobs:
 
           Write-Host 'The app started.'
 
+      # Hosted runners turn Windows animation effects off, which skips every animation and so hides crashes in
+      # animated controls. Turn them on, open the flyout (no --background) and check that the app logs its start,
+      # stays up for 10 seconds and logs nothing fatal or unhandled.
+      - name: Smoke test the flyout with animations on
+        if: ${{ matrix.arch == 'x64' }}
+        shell: pwsh
+        run: |
+          Add-Type -Namespace Salter -Name Spi -MemberDefinition @'
+          [DllImport("user32.dll", EntryPoint = "SystemParametersInfoW", SetLastError = true)]
+          public static extern bool Set(uint action, uint param, IntPtr value, uint winIni);
+          [DllImport("user32.dll", EntryPoint = "SystemParametersInfoW", SetLastError = true)]
+          public static extern bool Get(uint action, uint param, out int value, uint winIni);
+          '@
+          # SPI_SETCLIENTAREAANIMATION and SPI_SETUIEFFECTS, saved and broadcast (SPIF_UPDATEINIFILE | SPIF_SENDCHANGE).
+          foreach ($action in 0x1043, 0x103F) {
+            if (-not [Salter.Spi]::Set($action, 0, [IntPtr]1, 0x03)) {
+              $code = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+              Write-Host "::error::SystemParametersInfo(0x$($action.ToString('X4'))) failed with $code."
+              exit 1
+            }
+          }
+          $on = 0
+          $null = [Salter.Spi]::Get(0x1042, 0, [ref]$on, 0)
+          Write-Host "Client area animations: $($on -ne 0)"
+          if ($on -eq 0) {
+            Write-Host '::error::Client area animations are still off.'
+            exit 1
+          }
+
+          # The previous step's app must be gone, or this start would only hand over to it and exit.
+          Get-Process -Name 'Salter.App' -ErrorAction SilentlyContinue | Stop-Process -Force
+          Get-Process -Name 'Salter.App' -ErrorAction SilentlyContinue | Wait-Process -Timeout 20
+          Start-Sleep -Seconds 2
+
+          $exe = Join-Path $PWD 'artifacts/publish/x64/Salter.App.exe'
+          $logs = Join-Path $env:LOCALAPPDATA 'Salt.er/logs'
+          $started = 'Salt\.er started \(background: False\)'
+          $crash = '\[FTL\]|Unhandled'
+
+          function Get-NewestLog {
+            Get-ChildItem -LiteralPath $logs -Filter 'salter-*.log' -File -ErrorAction SilentlyContinue |
+              Sort-Object -Property LastWriteTime -Descending |
+              Select-Object -First 1
+          }
+
+          # Only what this run logs: the rest of the file it starts with, or all of a newer one.
+          $baseline = Get-NewestLog
+          function Read-NewLog {
+            $file = Get-NewestLog
+            if ($null -eq $file) { return '' }
+            # The app keeps the file open for writing.
+            $stream = [IO.File]::Open($file.FullName, 'Open', 'Read', 'ReadWrite')
+            try {
+              if ($null -ne $baseline -and $baseline.FullName -eq $file.FullName) {
+                $null = $stream.Seek([Math]::Min($baseline.Length, $stream.Length), 'Begin')
+              }
+              return [IO.StreamReader]::new($stream).ReadToEnd()
+            }
+            finally { $stream.Dispose() }
+          }
+
+          $process = Start-Process -FilePath $exe -PassThru
+          # Holding the handle keeps the exit code readable after the process ends.
+          $null = $process.Handle
+
+          $ok = $false
+          $deadline = (Get-Date).AddSeconds(20)
+          while ((Get-Date) -lt $deadline -and -not $process.HasExited) {
+            if ((Read-NewLog) -match $started) {
+              $ok = $true
+              break
+            }
+            Start-Sleep -Milliseconds 500
+          }
+
+          # With the flyout open and animating, the app must stay up.
+          if ($ok) {
+            $until = (Get-Date).AddSeconds(10)
+            while ((Get-Date) -lt $until -and -not $process.HasExited -and (Read-NewLog) -notmatch $crash) {
+              Start-Sleep -Milliseconds 500
+            }
+          }
+
+          $log = Read-NewLog
+          Write-Host '::group::App log of this run'
+          Write-Host $log
+          Write-Host '::endgroup::'
+
+          $failed = $false
+          if ($process.HasExited) {
+            Write-Host ("::error::The app exited with code 0x{0:X8} while its flyout was open." -f $process.ExitCode)
+            $failed = $true
+          }
+          elseif (-not $ok) {
+            Write-Host '::error::The app did not log its start (background: False) within 20 seconds.'
+            $failed = $true
+          }
+
+          if ($log -match $crash) {
+            Write-Host '::error::The app log has a fatal or unhandled entry.'
+            $failed = $true
+          }
+
+          if ($failed) {
+            $filter = @{ LogName = 'Application'; ProviderName = 'Application Error', '.NET Runtime'; StartTime = (Get-Date).AddMinutes(-5) }
+            Get-WinEvent -FilterHashtable $filter -MaxEvents 10 -ErrorAction SilentlyContinue |
+              ForEach-Object { Write-Host "$($_.TimeCreated) $($_.ProviderName): $($_.Message)" }
+          }
+
+          if (-not $process.HasExited) {
+            Stop-Process -Id $process.Id -Force
+          }
+
+          if ($failed) { exit 1 }
+          Write-Host 'The flyout stayed up for 10 seconds with animations on.'
+
       - name: Upload release files
         uses: actions/upload-artifact@v4
         with:
