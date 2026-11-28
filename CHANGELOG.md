@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - A crash at startup while Windows animation effects are on.
 - A washed-out, light gray window in the dark theme.
+- An error when switching between the light and dark theme in Settings.
 - Animations are set up in code only, never in control templates, and are
   skipped if Windows refuses one.
 

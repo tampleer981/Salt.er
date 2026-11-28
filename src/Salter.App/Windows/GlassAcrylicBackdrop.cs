@@ -126,12 +126,26 @@ public sealed partial class GlassAcrylicBackdrop : SystemBackdrop
         ICompositionSupportsSystemBackdrop target,
         XamlRoot xamlRoot)
     {
-        base.OnDefaultSystemBackdropConfigurationChanged(target, xamlRoot);
-        if (_controller is not null && _configuration is not null)
+        // No call to the base method: SystemBackdrop's default implementation rejects the target it is handed here
+        // (ArgumentException "target") when the window's theme changes, and a custom backdrop has nothing to delegate.
+        if (_controller is null || _configuration is null)
         {
-            _xamlRoot = xamlRoot;
+            return;
+        }
+
+        _xamlRoot = xamlRoot;
+        try
+        {
             var defaultConfiguration = GetDefaultSystemBackdropConfiguration(target, xamlRoot);
             ApplyConfiguration(_controller, _configuration, defaultConfiguration, xamlRoot);
+        }
+        catch (Exception ex) when (ex is ArgumentException or COMException)
+        {
+            // Keep the current palette; SyncTheme applies the theme from the root element instead.
+            if (xamlRoot.Content is FrameworkElement root)
+            {
+                SyncTheme(root.ActualTheme);
+            }
         }
     }
 
