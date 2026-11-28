@@ -4,8 +4,8 @@
     "height": 1080
   },
   "wallpaper": {
-    "id": "7jmgey",
-    "url": "https://wallhaven.cc/w/7jmgey",
+    "id": "xewljv",
+    "url": "https://wallhaven.cc/w/xewljv",
     "resolution": "3840x2160"
   },
   "screenshots": [
@@ -13,7 +13,7 @@
       "file": "genre-dark.png",
       "state": "genre",
       "theme": "dark",
-      "caption": "Genre chips, sort tabs and the Nature genre selected. (dark theme)",
+      "caption": "Genre pills, sort tabs and the Nature genre selected. (dark theme)",
       "width": 400,
       "height": 692
     },
@@ -21,7 +21,7 @@
       "file": "hero.png",
       "state": "hero",
       "theme": null,
-      "caption": "Salt.er opens as a glass flyout above the tray.",
+      "caption": "Salt.er opens as a translucent Windows 11 flyout above the tray.",
       "width": 1451,
       "height": 816
     },
@@ -61,7 +61,7 @@
       "file": "genre-light.png",
       "state": "genre",
       "theme": "light",
-      "caption": "Genre chips, sort tabs and the Nature genre selected. (light theme)",
+      "caption": "Genre pills, sort tabs and the Nature genre selected. (light theme)",
       "width": 400,
       "height": 692
     },
