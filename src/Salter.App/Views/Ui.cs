@@ -26,6 +26,12 @@ internal static class Ui
     /// <returns><see cref="Visibility.Collapsed"/> if <paramref name="value"/> is true; otherwise visible.</returns>
     public static Visibility VisibleUnless(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
 
+    /// <summary>Shows an element only while a text is empty, such as a hint inside an empty box.</summary>
+    /// <param name="text">The text.</param>
+    /// <returns>Visible if <paramref name="text"/> is null or empty; otherwise <see cref="Visibility.Collapsed"/>.</returns>
+    public static Visibility VisibleWhenEmpty(string? text) =>
+        string.IsNullOrEmpty(text) ? Visibility.Visible : Visibility.Collapsed;
+
     /// <summary>Creates a thumbnail image decoded at the flyout width for the display scale.</summary>
     /// <param name="uri">The thumbnail URL.</param>
     /// <param name="root">The XAML root that shows it, or <see langword="null"/> before it is shown (scale 1).</param>

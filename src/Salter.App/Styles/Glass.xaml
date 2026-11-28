@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Colours of the glass surface: a translucent fill over the window's desktop acrylic, a hairline border, a highlight
-  along the top edge and a diagonal sheen. Theme-dependent brushes switch with the flyout's RequestedTheme; reference
-  them with {ThemeResource}.
+  The few colours of the flyout that the WinUI theme resources do not cover. Everything else (text, control fills,
+  strokes, cards, accent) comes from the system's Fluent theme resources, so the flyout follows the light or dark
+  theme and the user's accent colour. Theme-dependent brushes switch with the flyout's RequestedTheme; reference them
+  with {ThemeResource}. docs/design.md maps every token to its resource.
 -->
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -11,83 +12,59 @@
   <ResourceDictionary.ThemeDictionaries>
     <!-- Dark; also used for any theme without its own dictionary. -->
     <ResourceDictionary x:Key="Default">
-      <LinearGradientBrush x:Key="GlassFillBrush" StartPoint="0.5,0" EndPoint="0.5,1">
-        <GradientStop Offset="0" Color="#660B0D10" />
-        <GradientStop Offset="1" Color="#5922262E" />
-      </LinearGradientBrush>
+      <!-- A very light layer over the window's desktop acrylic: the blurred desktop shows through. -->
+      <SolidColorBrush x:Key="GlassFillBrush" Color="#2E000000" />
+      <!-- Shown instead of the acrylic when it is unavailable (transparency off, battery saver, Windows 10). -->
       <LinearGradientBrush x:Key="FallbackWindowBrush" StartPoint="0.5,0" EndPoint="0.5,1">
         <GradientStop Offset="0" Color="#FF0B0D10" />
         <GradientStop Offset="1" Color="#FF242830" />
       </LinearGradientBrush>
-      <SolidColorBrush x:Key="GlassBorderBrush" Color="#24FFFFFF" />
-      <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFF4F5F8" />
-      <SolidColorBrush x:Key="TextSecondaryBrush" Color="#B3F4F5F8" />
-      <SolidColorBrush x:Key="FieldBrush" Color="#12FFFFFF" />
-      <SolidColorBrush x:Key="ChipBrush" Color="#17FFFFFF" />
-      <SolidColorBrush x:Key="HoverTransparentBrush" Color="#007F7F7F" />
-      <SolidColorBrush x:Key="HoverBrush" Color="#2E7F7F7F" />
-      <SolidColorBrush x:Key="PressedBrush" Color="#457F7F7F" />
-      <SolidColorBrush x:Key="SheetBrush" Color="#D112141A" />
-      <SolidColorBrush x:Key="SegmentSelectedBrush" Color="#29FFFFFF" />
+      <!-- Controls that float over wallpapers (refresh, toast): nearly opaque, so they read on any image. -->
+      <SolidColorBrush x:Key="FloatingFillBrush" Color="#E62C2C2C" />
+      <SolidColorBrush x:Key="FloatingFillPointerOverBrush" Color="#F2383838" />
+      <SolidColorBrush x:Key="FloatingFillPressedBrush" Color="#F2262626" />
     </ResourceDictionary>
     <ResourceDictionary x:Key="Light">
-      <LinearGradientBrush x:Key="GlassFillBrush" StartPoint="0.5,0" EndPoint="0.5,1">
-        <GradientStop Offset="0" Color="#75F8F9FB" />
-        <GradientStop Offset="1" Color="#66EAEFF5" />
-      </LinearGradientBrush>
+      <SolidColorBrush x:Key="GlassFillBrush" Color="#40FFFFFF" />
       <LinearGradientBrush x:Key="FallbackWindowBrush" StartPoint="0.5,0" EndPoint="0.5,1">
         <GradientStop Offset="0" Color="#FFF7F8FA" />
         <GradientStop Offset="1" Color="#FFE8ECF2" />
       </LinearGradientBrush>
-      <SolidColorBrush x:Key="GlassBorderBrush" Color="#17000000" />
-      <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FF14161B" />
-      <SolidColorBrush x:Key="TextSecondaryBrush" Color="#AD14161B" />
-      <SolidColorBrush x:Key="FieldBrush" Color="#8CFFFFFF" />
-      <SolidColorBrush x:Key="ChipBrush" Color="#0F000000" />
-      <SolidColorBrush x:Key="HoverTransparentBrush" Color="#007F7F7F" />
-      <SolidColorBrush x:Key="HoverBrush" Color="#2E7F7F7F" />
-      <SolidColorBrush x:Key="PressedBrush" Color="#457F7F7F" />
-      <SolidColorBrush x:Key="SheetBrush" Color="#E0F6F7FA" />
-      <SolidColorBrush x:Key="SegmentSelectedBrush" Color="#FFFFFFFF" />
+      <SolidColorBrush x:Key="FloatingFillBrush" Color="#F0FBFBFB" />
+      <SolidColorBrush x:Key="FloatingFillPointerOverBrush" Color="#F7F3F3F3" />
+      <SolidColorBrush x:Key="FloatingFillPressedBrush" Color="#F7EBEBEB" />
     </ResourceDictionary>
   </ResourceDictionary.ThemeDictionaries>
 
-  <!-- The inner highlight along the top edge of the glass. -->
-  <SolidColorBrush x:Key="GlassHighlightBrush" Color="#4DFFFFFF" />
-
-  <!-- White at 22 % fading out by 28 %, clear until 72 %, then 8 % at the far corner (a 160° CSS gradient). -->
-  <LinearGradientBrush x:Key="GlassSheenBrush" StartPoint="0.33,0" EndPoint="0.67,1">
-    <GradientStop Offset="0" Color="#38FFFFFF" />
-    <GradientStop Offset="0.28" Color="#00FFFFFF" />
-    <GradientStop Offset="0.72" Color="#00FFFFFF" />
-    <GradientStop Offset="1" Color="#14FFFFFF" />
-  </LinearGradientBrush>
-
-  <SolidColorBrush x:Key="AccentBrush" Color="#FF8FB0FF" />
-  <!-- Same RGB as AccentBrush at zero alpha so BrushTransition fades cleanly without hue shift. -->
-  <SolidColorBrush x:Key="AccentTransparentBrush" Color="#008FB0FF" />
-  <SolidColorBrush x:Key="OnAccentBrush" Color="#FF0B0D12" />
-  <SolidColorBrush x:Key="AccentHighlightBrush" Color="#8CFFFFFF" />
-
-  <!--
-    Elements floating over wallpapers (refresh button, toast, hover overlay) stay dark glass with white text in both
-    themes, so they read on any image.
-  -->
-  <SolidColorBrush x:Key="FloatingGlassBrush" Color="#8C14161C" />
-  <SolidColorBrush x:Key="FloatingBorderBrush" Color="#47FFFFFF" />
-  <SolidColorBrush x:Key="FloatingHighlightBrush" Color="#59FFFFFF" />
-  <SolidColorBrush x:Key="FloatingTextBrush" Color="#FFFFFFFF" />
-  <SolidColorBrush x:Key="PillBrush" Color="#38FFFFFF" />
-  <SolidColorBrush x:Key="PillHoverBrush" Color="#59FFFFFF" />
-  <SolidColorBrush x:Key="PillBorderBrush" Color="#59FFFFFF" />
-  <SolidColorBrush x:Key="SuccessBrush" Color="#FF8EE6B0" />
-  <SolidColorBrush x:Key="ErrorBrush" Color="#FFFF9C9C" />
-  <SolidColorBrush x:Key="PreviewBorderBrush" Color="#2EFFFFFF" />
-  <SolidColorBrush x:Key="SwatchRingBrush" Color="#40FFFFFF" />
-
+  <!-- Over wallpapers, whatever the theme: white text and a hairline on a darkening gradient. -->
+  <SolidColorBrush x:Key="OnImageTextBrush" Color="#FFFFFFFF" />
+  <SolidColorBrush x:Key="OnImageStrokeBrush" Color="#59FFFFFF" />
   <LinearGradientBrush x:Key="ThumbnailOverlayBrush" StartPoint="0.5,0" EndPoint="0.5,1">
     <GradientStop Offset="0" Color="#00000000" />
-    <GradientStop Offset="1" Color="#8C000000" />
+    <GradientStop Offset="1" Color="#99000000" />
   </LinearGradientBrush>
+
+  <!-- The brand mark in the header: the tray icon's wallpaper strip. -->
+  <LinearGradientBrush x:Key="BrandMarkBrush" StartPoint="0.5,0" EndPoint="0.5,1">
+    <GradientStop Offset="0" Color="#FFFFA6D9" />
+    <GradientStop Offset="0.30" Color="#FFFFB38A" />
+    <GradientStop Offset="0.48" Color="#FFF2588F" />
+    <GradientStop Offset="0.62" Color="#FF4A1F4F" />
+    <GradientStop Offset="0.70" Color="#FFC9A4FF" />
+    <GradientStop Offset="0.86" Color="#FF8A5CF0" />
+    <GradientStop Offset="1" Color="#FF4B2F9E" />
+  </LinearGradientBrush>
+  <SolidColorBrush x:Key="BrandMarkStrokeBrush" Color="#D9FFFFFF" />
+
+  <!--
+    Titles use the Display cut; body copy keeps the type ramp's XamlAutoFontFamily (Segoe UI Variable Text on
+    Windows 11). Segoe UI stands in where the variable font is missing (Windows 10).
+  -->
+  <FontFamily x:Key="DisplayFontFamily">Segoe UI Variable Display, Segoe UI</FontFamily>
+
+  <!-- Geometry. -->
+  <CornerRadius x:Key="CardCornerRadius">8</CornerRadius>
+  <CornerRadius x:Key="PillCornerRadius">15</CornerRadius>
+  <CornerRadius x:Key="SmallPillCornerRadius">13</CornerRadius>
 
 </ResourceDictionary>

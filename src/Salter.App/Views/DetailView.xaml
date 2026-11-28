@@ -18,15 +18,15 @@
     </MenuFlyout>
   </UserControl.Resources>
 
-  <Grid Background="{ThemeResource SheetBrush}">
+  <Grid>
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="*" />
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
 
-    <!-- Header: back, resolution and size, open on wallhaven. -->
-    <Grid Grid.Row="0" Padding="14,14,14,10">
+    <!-- Header, like a title bar: back, resolution and size (secondary), open on wallhaven; a hairline below. -->
+    <Grid Grid.Row="0" Height="48" Padding="8,0" ColumnSpacing="8">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="*" />
@@ -37,7 +37,7 @@
           Grid.Column="0"
           AutomationProperties.Name="{x:Bind local:Ui.Text('Detail_Back')}"
           Command="{x:Bind Detail.CloseCommand}"
-          Style="{StaticResource IconButtonStyle}"
+          Style="{StaticResource TitleBarButtonStyle}"
           ToolTipService.ToolTip="{x:Bind local:Ui.Text('Detail_Back')}">
         <FontIcon FontSize="16" Glyph="&#xE72B;" />
       </Button>
@@ -45,70 +45,71 @@
           Grid.Column="1"
           HorizontalAlignment="Center"
           VerticalAlignment="Center"
-          FontSize="13"
-          Foreground="{ThemeResource TextSecondaryBrush}"
+          Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+          Style="{StaticResource BodyLineTextStyle}"
           Text="{x:Bind Detail.Summary, Mode=OneWay}"
           TextTrimming="CharacterEllipsis" />
       <HyperlinkButton
           Grid.Column="2"
           AutomationProperties.Name="{x:Bind local:Ui.Text('Detail_OpenInBrowser')}"
           NavigateUri="{x:Bind Detail.WallhavenPage, Mode=OneWay}"
-          Style="{StaticResource IconButtonStyle}"
+          Style="{StaticResource TitleBarLinkButtonStyle}"
           ToolTipService.ToolTip="{x:Bind local:Ui.Text('Detail_OpenInBrowser')}">
         <FontIcon FontSize="15" Glyph="&#xE8A7;" />
       </HyperlinkButton>
+      <Rectangle Grid.ColumnSpan="3" Margin="-8,0" VerticalAlignment="Bottom" Style="{StaticResource DividerStyle}" />
     </Grid>
 
     <!-- Preview, tags and target; scrolls when the flyout is shorter than usual. -->
     <ScrollViewer Grid.Row="1" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Hidden">
-      <StackPanel Padding="14,0,14,14">
-        <!-- The image is the frame's background, so the rounded corners clip it. -->
-        <Border Height="194" Background="{ThemeResource ChipBrush}" CornerRadius="12">
+      <StackPanel Padding="12,12,12,12">
+        <!-- A rounded card; the image is the frame's background, so the rounded corners clip it. -->
+        <Border
+            Height="196"
+            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+            CornerRadius="{StaticResource CardCornerRadius}">
           <Border
               x:Name="Preview"
-              BorderBrush="{ThemeResource PreviewBorderBrush}"
+              BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
               BorderThickness="1"
-              CornerRadius="12" />
+              CornerRadius="{StaticResource CardCornerRadius}" />
         </Border>
 
-        <ItemsControl Margin="0,14,0,0" IsTabStop="False" ItemsSource="{x:Bind Detail.Tags, Mode=OneWay}">
+        <ItemsControl Margin="0,12,0,0" IsTabStop="False" ItemsSource="{x:Bind Detail.Tags, Mode=OneWay}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <controls:WrapPanel HorizontalSpacing="6" VerticalSpacing="6" />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
-          <!-- Right-click (or press and hold) a pill to leave its tag out of the feed. -->
+          <!-- Subtle pills. Right-click (or press and hold) a pill to leave its tag out of the feed. -->
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="x:String">
               <Border
-                  Padding="10,4"
-                  Background="{ThemeResource ChipBrush}"
+                  Padding="10,3,10,4"
+                  Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                  BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                  BorderThickness="1"
                   ContextFlyout="{StaticResource TagMenu}"
-                  CornerRadius="12"
+                  CornerRadius="{StaticResource SmallPillCornerRadius}"
                   Tag="{x:Bind}">
-                <TextBlock FontSize="12" Foreground="{ThemeResource TextPrimaryBrush}"><Run Text="#" /><Run Text="{x:Bind}" /></TextBlock>
+                <TextBlock FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"><Run Text="#" /><Run Text="{x:Bind}" /></TextBlock>
               </Border>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-        <!-- Shown only with more than one display. -->
-        <StackPanel Margin="0,18,0,0" Spacing="8" Visibility="{x:Bind Detail.ShowTargets, Mode=OneWay}">
-          <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind local:Ui.Text('Detail_ApplyTo')}" />
-          <Border
-              Padding="3"
-              Background="{ThemeResource FieldBrush}"
-              BorderBrush="{ThemeResource GlassBorderBrush}"
-              BorderThickness="1"
-              CornerRadius="12">
+        <!-- Shown only with more than one display: a segmented control. -->
+        <StackPanel Margin="0,16,0,0" Spacing="8" Visibility="{x:Bind Detail.ShowTargets, Mode=OneWay}">
+          <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind local:Ui.Text('Detail_ApplyTo')}" />
+          <Border Style="{StaticResource SegmentedHostStyle}">
             <ItemsRepeater ItemsSource="{x:Bind Detail.Targets, Mode=OneWay}">
               <ItemsRepeater.Layout>
                 <UniformGridLayout
                     ItemsStretch="Fill"
                     MaximumRowsOrColumns="3"
-                    MinColumnSpacing="4"
+                    MinColumnSpacing="2"
                     MinItemWidth="60"
-                    MinRowSpacing="4" />
+                    MinRowSpacing="2" />
               </ItemsRepeater.Layout>
               <ItemsRepeater.ItemTemplate>
                 <DataTemplate x:DataType="vm:ChoiceItem">
@@ -128,25 +129,35 @@
       </StackPanel>
     </ScrollViewer>
 
-    <!-- Primary action and credit. -->
-    <StackPanel Grid.Row="2" Padding="14" Spacing="8">
-      <Button Command="{x:Bind Detail.ApplyCommand}" Style="{StaticResource PrimaryButtonStyle}">
+    <!-- Primary action and credit, below a hairline. -->
+    <Rectangle Grid.Row="2" VerticalAlignment="Top" Style="{StaticResource DividerStyle}" />
+    <StackPanel Grid.Row="2" Padding="12" Spacing="8">
+      <Button
+          AutomationProperties.Name="{x:Bind local:Ui.Text('Detail_Set')}"
+          Command="{x:Bind Detail.ApplyCommand}"
+          Style="{StaticResource PrimaryButtonStyle}">
         <StackPanel Orientation="Horizontal" Spacing="8">
-          <ProgressRing
-              Width="16"
-              Height="16"
-              Foreground="{ThemeResource OnAccentBrush}"
-              IsActive="{x:Bind Detail.IsApplying, Mode=OneWay}"
-              Visibility="{x:Bind Detail.IsApplying, Mode=OneWay}" />
+          <Grid Width="16" Height="16">
+            <FontIcon
+                FontSize="16"
+                Glyph="&#xE7F4;"
+                Visibility="{x:Bind local:Ui.VisibleUnless(Detail.IsApplying), Mode=OneWay}" />
+            <ProgressRing
+                Width="16"
+                Height="16"
+                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                IsActive="{x:Bind Detail.IsApplying, Mode=OneWay}"
+                Visibility="{x:Bind Detail.IsApplying, Mode=OneWay}" />
+          </Grid>
           <TextBlock Text="{x:Bind local:Ui.Text('Detail_Set')}" />
         </StackPanel>
       </Button>
       <TextBlock
           HorizontalAlignment="Center"
-          FontSize="11"
-          Foreground="{ThemeResource TextSecondaryBrush}"
+          Style="{StaticResource TertiaryCaptionTextStyle}"
           Text="{x:Bind Detail.Attribution, Mode=OneWay}"
-          TextTrimming="CharacterEllipsis" />
+          TextTrimming="CharacterEllipsis"
+          TextWrapping="NoWrap" />
     </StackPanel>
   </Grid>
 </UserControl>

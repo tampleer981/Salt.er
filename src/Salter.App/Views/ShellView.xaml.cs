@@ -12,7 +12,7 @@ namespace Salter.App.Views;
 
 /// <summary>
 /// The flyout's content: shows the shell's current screen with a short fade (the details also slide up), and the
-/// toast over every screen. Each time the flyout opens, the content fades in while sliding up.
+/// toast over every screen, which fades in and out. Each time the flyout opens, the content fades in while sliding up.
 /// </summary>
 public sealed partial class ShellView : UserControl
 {
@@ -21,6 +21,7 @@ public sealed partial class ShellView : UserControl
     private const float EntranceOffset = 12;
     private static readonly TimeSpan FadeDuration = TimeSpan.FromMilliseconds(150);
     private static readonly TimeSpan OpenDuration = TimeSpan.FromMilliseconds(180);
+    private static readonly TimeSpan ToastFadeDuration = TimeSpan.FromMilliseconds(180);
 
     private readonly FeedView _feed;
     private readonly DetailView _detail;
@@ -43,6 +44,7 @@ public sealed partial class ShellView : UserControl
         Pages.Children.Add(_detail);
         Pages.Children.Add(_settings);
         ShowPage(animate: false);
+        Motion.SetOpacity(Toast, ToastOpacity(Shell.Toast.IsVisible));
 
         Shell.PropertyChanged += OnShellPropertyChanged;
         Shell.Toast.PropertyChanged += OnToastPropertyChanged;
@@ -51,11 +53,6 @@ public sealed partial class ShellView : UserControl
 
     /// <summary>Gets the shell shown.</summary>
     public ShellViewModel Shell { get; }
-
-    /// <summary>Fades the toast in while it is showing.</summary>
-    /// <param name="isVisible">Whether a toast is showing.</param>
-    /// <returns>The toast's opacity.</returns>
-    public static double ToastOpacity(bool isVisible) => isVisible ? 1 : 0;
 
     /// <summary>Shows the check mark on success toasts.</summary>
     /// <param name="kind">The toast's severity.</param>
@@ -103,6 +100,8 @@ public sealed partial class ShellView : UserControl
     /// <summary>Fades the content in while it slides up, as the flyout opens. The glass itself stays in place.</summary>
     public void PlayOpenAnimation() => Motion.Enter(Pages, EntranceOffset, OpenDuration);
 
+    private static double ToastOpacity(bool isVisible) => isVisible ? 1 : 0;
+
     private void OnShellPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(ShellViewModel.Page))
@@ -135,6 +134,11 @@ public sealed partial class ShellView : UserControl
 
     private void OnToastPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(ToastViewModel.IsVisible))
+        {
+            Motion.Fade(Toast, ToastOpacity(Shell.Toast.IsVisible), ToastFadeDuration);
+        }
+
         // A toast appears, or replaces the one showing.
         if ((e.PropertyName is nameof(ToastViewModel.IsVisible) or nameof(ToastViewModel.Message)) && Shell.Toast.IsVisible)
         {

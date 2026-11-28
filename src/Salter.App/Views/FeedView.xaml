@@ -18,19 +18,6 @@
           To="0.45"
           Duration="0:0:0.9" />
     </Storyboard>
-
-    <!--
-      Lightweight styling of the search and exclusion boxes: the surrounding border is the field, so the boxes stay
-      clear in every state. Text colours keep the theme defaults, which follow the flyout's theme.
-    -->
-    <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
-    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
-    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
-    <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
-    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
-    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
-    <Thickness x:Key="TextControlBorderThemeThickness">0</Thickness>
-    <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
   </UserControl.Resources>
 
   <Grid>
@@ -43,101 +30,95 @@
       <RowDefinition Height="*" />
     </Grid.RowDefinitions>
 
-    <!-- Header: wordmark, filter toggle, settings. -->
-    <Grid Grid.Row="0" Padding="20,18,14,10">
-      <TextBlock
+    <!-- Header, like a title bar: brand mark and name, then filter toggle and settings; a hairline below. -->
+    <Grid Grid.Row="0" Height="48" Padding="16,0,8,0" ColumnSpacing="10">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <!-- The tray icon's wallpaper strip, drawn in XAML: no image file to load. -->
+      <Border
+          Width="11"
+          Height="16"
           VerticalAlignment="Center"
+          Background="{StaticResource BrandMarkBrush}"
+          BorderBrush="{StaticResource BrandMarkStrokeBrush}"
+          BorderThickness="1"
+          CornerRadius="3" />
+      <TextBlock
+          Grid.Column="1"
           AutomationProperties.HeadingLevel="Level1"
-          CharacterSpacing="-40"
-          FontFamily="Segoe UI Variable Display"
-          FontSize="30"
-          FontWeight="ExtraBold"
-          Foreground="{ThemeResource TextPrimaryBrush}"
-          LineHeight="30"
-          LineStackingStrategy="BlockLineHeight"><Run Text="salt" /><Run Foreground="{ThemeResource AccentBrush}" Text="." /><Run Text="er" /></TextBlock>
-      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="2">
+          Style="{StaticResource WindowTitleTextStyle}"><Run Text="Salt" /><Run Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Text="." /><Run Text="er" /></TextBlock>
+      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
         <ToggleButton
             AutomationProperties.Name="{x:Bind local:Ui.Text('Feed_Filters')}"
             Command="{x:Bind Feed.ToggleFiltersCommand}"
             IsChecked="{x:Bind Feed.FiltersOpen, Mode=OneWay}"
-            Style="{StaticResource ToggleIconButtonStyle}"
+            Style="{StaticResource TitleBarToggleButtonStyle}"
             ToolTipService.ToolTip="{x:Bind local:Ui.Text('Feed_Filters')}">
           <FontIcon FontSize="16" Glyph="&#xE71C;" />
         </ToggleButton>
         <Button
             AutomationProperties.Name="{x:Bind local:Ui.Text('Feed_Settings')}"
             Command="{x:Bind Shell.ShowSettingsCommand}"
-            Style="{StaticResource IconButtonStyle}"
+            Style="{StaticResource TitleBarButtonStyle}"
             ToolTipService.ToolTip="{x:Bind local:Ui.Text('Feed_Settings')}">
           <FontIcon FontSize="16" Glyph="&#xE713;" />
         </Button>
       </StackPanel>
+      <Rectangle Grid.ColumnSpan="3" Margin="-16,0,-8,0" VerticalAlignment="Bottom" Style="{StaticResource DividerStyle}" />
     </Grid>
 
-    <!-- Search: Enter searches, Ctrl+K focuses the box. -->
-    <Border
-        Grid.Row="1"
-        Height="38"
-        Margin="14,4,14,10"
-        Padding="12,0,8,0"
-        Background="{ThemeResource FieldBrush}"
-        BorderBrush="{ThemeResource GlassBorderBrush}"
-        BorderThickness="1"
-        CornerRadius="12">
-      <Grid ColumnSpacing="8">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="Auto" />
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-        <FontIcon
-            Grid.Column="0"
-            FontSize="14"
-            Foreground="{ThemeResource TextPrimaryBrush}"
-            Glyph="&#xE721;" />
-        <TextBox
-            x:Name="SearchBox"
-            Grid.Column="1"
-            Padding="0,6"
-            VerticalAlignment="Center"
-            AutomationProperties.Name="{x:Bind local:Ui.Text('Search_Name')}"
-            Background="Transparent"
-            BorderThickness="0"
-            FontSize="14"
-            Foreground="{ThemeResource TextPrimaryBrush}"
-            IsSpellCheckEnabled="False"
-            KeyDown="OnSearchKeyDown"
-            MinHeight="0"
-            PlaceholderText="{x:Bind local:Ui.Text('Search_Placeholder')}"
-            Text="{x:Bind Feed.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-        <Border
-            Grid.Column="2"
-            Padding="5,1"
-            VerticalAlignment="Center"
-            BorderBrush="{ThemeResource GlassBorderBrush}"
-            BorderThickness="1"
-            CornerRadius="6">
-          <TextBlock
-              FontSize="11"
-              Foreground="{ThemeResource TextSecondaryBrush}"
-              Text="{x:Bind local:Ui.Text('Search_ShortcutHint')}" />
-        </Border>
-      </Grid>
-    </Border>
+    <!--
+      Search: the default Fluent text box (translucent fill, accent underline while focused) with a leading search
+      glyph and the Ctrl+K hint while it is empty. Enter searches.
+    -->
+    <Grid Grid.Row="1" Margin="12,12,12,8">
+      <TextBox
+          x:Name="SearchBox"
+          MinHeight="36"
+          Padding="36,7,52,6"
+          VerticalContentAlignment="Center"
+          AutomationProperties.Name="{x:Bind local:Ui.Text('Search_Name')}"
+          IsSpellCheckEnabled="False"
+          KeyDown="OnSearchKeyDown"
+          PlaceholderText="{x:Bind local:Ui.Text('Search_Placeholder')}"
+          Text="{x:Bind Feed.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+      <FontIcon
+          Margin="12,0,0,0"
+          HorizontalAlignment="Left"
+          VerticalAlignment="Center"
+          FontSize="14"
+          Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+          Glyph="&#xE721;"
+          IsHitTestVisible="False" />
+      <Border
+          Margin="0,0,8,0"
+          Padding="6,1,6,2"
+          HorizontalAlignment="Right"
+          VerticalAlignment="Center"
+          BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+          BorderThickness="1"
+          CornerRadius="{ThemeResource ControlCornerRadius}"
+          IsHitTestVisible="False"
+          Visibility="{x:Bind local:Ui.VisibleWhenEmpty(Feed.SearchText), Mode=OneWay}">
+        <TextBlock
+            FontSize="11"
+            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+            Text="{x:Bind local:Ui.Text('Search_ShortcutHint')}" />
+      </Border>
+    </Grid>
 
-    <!-- Filters panel: ratio, minimum resolution, colour, excluded tags. -->
+    <!-- Filters panel: a card with labelled rows (ratio, minimum resolution, colour, excluded tags). -->
     <Border
         Grid.Row="2"
-        Margin="14,0,14,10"
-        Padding="12"
-        Background="{ThemeResource FieldBrush}"
-        BorderBrush="{ThemeResource GlassBorderBrush}"
-        BorderThickness="1"
-        CornerRadius="12"
+        Margin="12,0,12,8"
+        Style="{StaticResource CardStyle}"
         Visibility="{x:Bind Feed.FiltersOpen, Mode=OneWay}">
       <Grid ColumnSpacing="10" RowSpacing="10">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="74" />
+          <ColumnDefinition Width="72" />
           <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
@@ -160,10 +141,11 @@
             <DataTemplate x:DataType="vm:ChoiceItem">
               <RadioButton
                   Height="26"
+                  Padding="10,0"
                   Checked="OnRatioChecked"
                   Click="OnRatioClick"
                   Content="{x:Bind Label}"
-                  CornerRadius="13"
+                  CornerRadius="{StaticResource SmallPillCornerRadius}"
                   GroupName="Ratio"
                   IsChecked="{x:Bind IsSelected, Mode=OneWay}"
                   Style="{StaticResource ChipRadioStyle}"
@@ -185,10 +167,11 @@
             <DataTemplate x:DataType="vm:ChoiceItem">
               <RadioButton
                   Height="26"
+                  Padding="10,0"
                   Checked="OnResolutionChecked"
                   Click="OnResolutionClick"
                   Content="{x:Bind Label}"
-                  CornerRadius="13"
+                  CornerRadius="{StaticResource SmallPillCornerRadius}"
                   GroupName="Resolution"
                   IsChecked="{x:Bind IsSelected, Mode=OneWay}"
                   Style="{StaticResource ChipRadioStyle}"
@@ -210,7 +193,7 @@
             ElementPrepared="OnColorPrepared"
             ItemsSource="{x:Bind Feed.Colors}">
           <ItemsRepeater.Layout>
-            <StackLayout Orientation="Horizontal" Spacing="6" />
+            <StackLayout Orientation="Horizontal" Spacing="4" />
           </ItemsRepeater.Layout>
           <ItemsRepeater.ItemTemplate>
             <DataTemplate x:DataType="vm:ChoiceItem">
@@ -230,39 +213,23 @@
         <!-- Excluded tags: Enter adds the typed tag; each chip's × shows the tag's wallpapers again. -->
         <TextBlock
             Grid.Row="3"
-            Margin="0,5,0,0"
+            Margin="0,7,0,0"
             VerticalAlignment="Top"
             Style="{StaticResource CaptionTextStyle}"
             Text="{x:Bind local:Ui.Text('Filter_Exclude')}" />
-        <StackPanel Grid.Row="3" Grid.Column="1">
-          <Border
-              Height="28"
-              Padding="10,0,4,0"
-              Background="{ThemeResource ChipBrush}"
-              BorderBrush="{ThemeResource GlassBorderBrush}"
-              BorderThickness="1"
-              CornerRadius="8">
-            <TextBox
-                x:Name="ExclusionBox"
-                Padding="0,4"
-                VerticalAlignment="Center"
-                AutomationProperties.Name="{x:Bind local:Ui.Text('Filter_ExcludeName')}"
-                Background="Transparent"
-                BorderThickness="0"
-                FontSize="12"
-                Foreground="{ThemeResource TextPrimaryBrush}"
-                IsSpellCheckEnabled="False"
-                KeyDown="OnExclusionKeyDown"
-                MaxLength="40"
-                MinHeight="0"
-                PlaceholderText="{x:Bind local:Ui.Text('Filter_ExcludePlaceholder')}"
-                Text="{x:Bind Feed.ExclusionText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-          </Border>
-          <ItemsControl
-              x:Name="ExclusionChips"
-              Margin="0,6,0,0"
-              IsTabStop="False"
-              ItemsSource="{x:Bind Feed.ExcludedTags}">
+        <StackPanel Grid.Row="3" Grid.Column="1" Spacing="6">
+          <TextBox
+              x:Name="ExclusionBox"
+              MinHeight="30"
+              Padding="10,5,6,5"
+              AutomationProperties.Name="{x:Bind local:Ui.Text('Filter_ExcludeName')}"
+              FontSize="12"
+              IsSpellCheckEnabled="False"
+              KeyDown="OnExclusionKeyDown"
+              MaxLength="40"
+              PlaceholderText="{x:Bind local:Ui.Text('Filter_ExcludePlaceholder')}"
+              Text="{x:Bind Feed.ExclusionText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+          <ItemsControl x:Name="ExclusionChips" IsTabStop="False" ItemsSource="{x:Bind Feed.ExcludedTags}">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
                 <controls:WrapPanel HorizontalSpacing="4" VerticalSpacing="4" />
@@ -273,11 +240,11 @@
                 <Grid
                     Height="26"
                     Padding="10,0,3,0"
-                    Background="{ThemeResource ChipBrush}"
-                    BorderBrush="{ThemeResource GlassBorderBrush}"
+                    Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     ColumnSpacing="2"
-                    CornerRadius="13">
+                    CornerRadius="{StaticResource SmallPillCornerRadius}">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
@@ -285,17 +252,17 @@
                   <TextBlock
                       VerticalAlignment="Center"
                       FontSize="12"
-                      FontWeight="Medium"
-                      Foreground="{ThemeResource TextPrimaryBrush}"><Run Text="#" /><Run Text="{x:Bind}" /></TextBlock>
+                      Foreground="{ThemeResource TextFillColorPrimaryBrush}"><Run Text="#" /><Run Text="{x:Bind}" /></TextBlock>
                   <!-- Named "Remove <tag>" for screen readers when loaded. -->
                   <Button
                       Grid.Column="1"
                       Width="20"
                       Height="20"
+                      Padding="0"
                       Click="OnRemoveExclusionClick"
                       CornerRadius="10"
                       Loaded="OnRemoveExclusionLoaded"
-                      Style="{StaticResource IconButtonStyle}"
+                      Style="{StaticResource SubtleButtonStyle}"
                       Tag="{x:Bind}">
                     <FontIcon FontSize="8" Glyph="&#xE711;" />
                   </Button>
@@ -307,7 +274,7 @@
       </Grid>
     </Border>
 
-    <!-- Genres: one scrollable line, no visible scroll bar; the mouse wheel scrolls it sideways. -->
+    <!-- Genres: one scrollable line of pills, no visible scroll bar; the mouse wheel scrolls it sideways. -->
     <ScrollViewer
         x:Name="GenreScroller"
         Grid.Row="3"
@@ -315,7 +282,7 @@
         HorizontalScrollMode="Enabled"
         VerticalScrollBarVisibility="Disabled"
         VerticalScrollMode="Disabled">
-      <ItemsRepeater Margin="14,0,14,10" ItemsSource="{x:Bind Feed.Genres}">
+      <ItemsRepeater Margin="12,0,12,4" ItemsSource="{x:Bind Feed.Genres}">
         <ItemsRepeater.Layout>
           <StackLayout Orientation="Horizontal" Spacing="6" />
         </ItemsRepeater.Layout>
@@ -334,30 +301,15 @@
       </ItemsRepeater>
     </ScrollViewer>
 
-    <!-- Sort tabs, evenly spread, above a hairline. -->
-    <Border
-        Grid.Row="4"
-        Padding="10,2,10,0"
-        BorderBrush="{ThemeResource GlassBorderBrush}"
-        BorderThickness="0,0,0,1">
-      <ItemsRepeater ItemsSource="{x:Bind Feed.Sortings}">
-        <ItemsRepeater.Layout>
-          <UniformGridLayout ItemsStretch="Fill" MaximumRowsOrColumns="4" MinItemWidth="40" />
-        </ItemsRepeater.Layout>
-        <ItemsRepeater.ItemTemplate>
-          <DataTemplate x:DataType="vm:ChoiceItem">
-            <RadioButton
-                Checked="OnSortingChecked"
-                Click="OnSortingClick"
-                Content="{x:Bind Label}"
-                GroupName="Sorting"
-                IsChecked="{x:Bind IsSelected, Mode=OneWay}"
-                Style="{StaticResource TabRadioStyle}"
-                Tag="{x:Bind}" />
-          </DataTemplate>
-        </ItemsRepeater.ItemTemplate>
-      </ItemsRepeater>
-    </Border>
+    <!-- Sort tabs: the WinUI SelectorBar (accent pill under the selected item); items are added in code-behind. -->
+    <Grid Grid.Row="4">
+      <SelectorBar
+          x:Name="SortBar"
+          Margin="4,0,4,0"
+          AutomationProperties.Name="{x:Bind local:Ui.Text('Feed_Sort')}"
+          SelectionChanged="OnSortSelectionChanged" />
+      <Rectangle VerticalAlignment="Bottom" Style="{StaticResource DividerStyle}" />
+    </Grid>
 
     <!-- Results. -->
     <Grid Grid.Row="5">
@@ -367,7 +319,7 @@
           VerticalScrollBarVisibility="Hidden"
           ViewChanged="OnFeedViewChanged"
           Visibility="{x:Bind local:FeedView.ResultsVisibility(Feed.State), Mode=OneWay}">
-        <StackPanel>
+        <StackPanel Padding="12,8,12,0">
           <!-- Three viewports of realized items, so thumbnails are ready before they scroll into view. -->
           <ItemsRepeater
               ElementClearing="OnThumbnailClearing"
@@ -378,13 +330,13 @@
               VerticalCacheLength="3"
               XYFocusKeyboardNavigation="Enabled">
             <ItemsRepeater.Layout>
-              <StackLayout Spacing="2" />
+              <StackLayout Spacing="8" />
             </ItemsRepeater.Layout>
             <ItemsRepeater.ItemTemplate>
               <!--
-                Parts are found by position in code-behind: the image first, then the hover overlay. The overlay, and
-                so its Set button, takes clicks only while shown. The image fades in once decoded and grows slightly
-                on hover, clipped to its cell.
+                A rounded card. Parts are found by position in code-behind: the image layer first (its ImageBrush is
+                set there, so the rounded corners clip the image), then the hover overlay. The overlay, and so its
+                Set button, takes clicks only while shown. Both fade through Motion; nothing animates in markup.
               -->
               <DataTemplate x:DataType="wh:WallpaperSummary">
                 <Button
@@ -397,43 +349,40 @@
                     PointerExited="OnThumbnailPointerExited"
                     Style="{StaticResource ThumbnailButtonStyle}"
                     Tag="{x:Bind}">
-                  <Grid Background="{ThemeResource ChipBrush}" SizeChanged="OnThumbnailSizeChanged">
-                    <Image
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        ImageOpened="OnThumbnailImageOpened"
-                        Opacity="0"
-                        Stretch="UniformToFill">
-                      <Image.OpacityTransition>
-                        <ScalarTransition Duration="0:0:0.2" />
-                      </Image.OpacityTransition>
-                      <Image.ScaleTransition>
-                        <Vector3Transition Duration="0:0:0.2" />
-                      </Image.ScaleTransition>
-                    </Image>
-                    <Grid
-                        Padding="12,26,12,10"
-                        VerticalAlignment="Bottom"
-                        Background="{ThemeResource ThumbnailOverlayBrush}"
-                        IsHitTestVisible="False"
-                        Opacity="0">
-                      <Grid.OpacityTransition>
-                        <ScalarTransition Duration="0:0:0.18" />
-                      </Grid.OpacityTransition>
-                      <TextBlock
-                          VerticalAlignment="Center"
-                          FontSize="12"
-                          FontWeight="Medium"
-                          Foreground="{ThemeResource FloatingTextBrush}"
-                          Text="{x:Bind Resolution}" />
-                      <Button
-                          HorizontalAlignment="Right"
-                          AutomationProperties.Name="{x:Bind local:Ui.Text('Detail_Set')}"
-                          Click="OnQuickApplyClick"
-                          Content="{x:Bind local:Ui.Text('Feed_Set')}"
-                          Style="{StaticResource PillButtonStyle}"
-                          Tag="{x:Bind}" />
+                  <Grid Background="{ThemeResource ControlFillColorSecondaryBrush}" CornerRadius="{StaticResource CardCornerRadius}">
+                    <Border CornerRadius="{StaticResource CardCornerRadius}" Opacity="0" />
+                    <Grid IsHitTestVisible="False" Opacity="0">
+                      <!-- A lighter hairline marks the card under the pointer. -->
+                      <Border
+                          BorderBrush="{StaticResource OnImageStrokeBrush}"
+                          BorderThickness="1"
+                          CornerRadius="{StaticResource CardCornerRadius}" />
+                      <Grid
+                          Padding="12,26,10,10"
+                          VerticalAlignment="Bottom"
+                          Background="{StaticResource ThumbnailOverlayBrush}"
+                          CornerRadius="0,0,8,8">
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            FontWeight="SemiBold"
+                            Foreground="{StaticResource OnImageTextBrush}"
+                            Text="{x:Bind Resolution}" />
+                        <Button
+                            HorizontalAlignment="Right"
+                            AutomationProperties.Name="{x:Bind local:Ui.Text('Detail_Set')}"
+                            Click="OnQuickApplyClick"
+                            Content="{x:Bind local:Ui.Text('Feed_Set')}"
+                            Style="{StaticResource QuickSetButtonStyle}"
+                            Tag="{x:Bind}" />
+                      </Grid>
                     </Grid>
+                    <!-- The card's hairline, above the image. -->
+                    <Border
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="{StaticResource CardCornerRadius}"
+                        IsHitTestVisible="False" />
                   </Grid>
                 </Button>
               </DataTemplate>
@@ -448,7 +397,7 @@
               IsActive="{x:Bind Feed.IsLoadingMore, Mode=OneWay}"
               Visibility="{x:Bind Feed.IsLoadingMore, Mode=OneWay}" />
           <StackPanel
-              Margin="14,12,14,64"
+              Margin="2,12,2,64"
               HorizontalAlignment="Center"
               Spacing="8"
               Visibility="{x:Bind Feed.LoadMoreFailed, Mode=OneWay}">
@@ -459,21 +408,27 @@
                 TextAlignment="Center" />
             <Button
                 HorizontalAlignment="Center"
+                AutomationProperties.Name="{x:Bind local:Ui.Text('State_Retry')}"
                 Command="{x:Bind Feed.RetryLoadMoreCommand}"
-                Content="{x:Bind local:Ui.Text('State_Retry')}"
-                Style="{StaticResource SecondaryButtonStyle}" />
+                Style="{StaticResource SecondaryButtonStyle}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <FontIcon FontSize="14" Glyph="&#xE72C;" />
+                <TextBlock Text="{x:Bind local:Ui.Text('State_Retry')}" />
+              </StackPanel>
+            </Button>
           </StackPanel>
         </StackPanel>
       </ScrollViewer>
 
-      <!-- Loading: three pulsing placeholders. -->
+      <!-- Loading: three pulsing placeholder cards. -->
       <StackPanel
           x:Name="LoadingPanel"
-          Spacing="2"
+          Padding="12,8,12,0"
+          Spacing="8"
           Visibility="{x:Bind local:FeedView.LoadingVisibility(Feed.State), Mode=OneWay}">
-        <Border Height="196" Background="{ThemeResource ChipBrush}" />
-        <Border Height="196" Background="{ThemeResource ChipBrush}" />
-        <Border Height="196" Background="{ThemeResource ChipBrush}" />
+        <Border Height="196" Background="{ThemeResource ControlFillColorSecondaryBrush}" CornerRadius="{StaticResource CardCornerRadius}" />
+        <Border Height="196" Background="{ThemeResource ControlFillColorSecondaryBrush}" CornerRadius="{StaticResource CardCornerRadius}" />
+        <Border Height="196" Background="{ThemeResource ControlFillColorSecondaryBrush}" CornerRadius="{StaticResource CardCornerRadius}" />
       </StackPanel>
 
       <!-- Empty. -->
@@ -483,16 +438,26 @@
           VerticalAlignment="Center"
           Spacing="12"
           Visibility="{x:Bind local:FeedView.EmptyVisibility(Feed.State), Mode=OneWay}">
+        <FontIcon
+            HorizontalAlignment="Center"
+            FontSize="32"
+            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+            Glyph="&#xE721;" />
         <TextBlock
             HorizontalAlignment="Center"
-            FontSize="14"
-            Foreground="{ThemeResource TextPrimaryBrush}"
-            Text="{x:Bind local:Ui.Text('State_Empty')}" />
+            Style="{StaticResource BodyStrongTextBlockStyle}"
+            Text="{x:Bind local:Ui.Text('State_Empty')}"
+            TextAlignment="Center" />
         <Button
             HorizontalAlignment="Center"
+            AutomationProperties.Name="{x:Bind local:Ui.Text('State_ResetFilters')}"
             Command="{x:Bind Feed.ResetFiltersCommand}"
-            Content="{x:Bind local:Ui.Text('State_ResetFilters')}"
-            Style="{StaticResource SecondaryButtonStyle}" />
+            Style="{StaticResource SecondaryButtonStyle}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <FontIcon FontSize="14" Glyph="&#xE894;" />
+            <TextBlock Text="{x:Bind local:Ui.Text('State_ResetFilters')}" />
+          </StackPanel>
+        </Button>
       </StackPanel>
 
       <!-- Error. -->
@@ -502,23 +467,31 @@
           VerticalAlignment="Center"
           Spacing="12"
           Visibility="{x:Bind local:FeedView.ErrorVisibility(Feed.State), Mode=OneWay}">
+        <FontIcon
+            HorizontalAlignment="Center"
+            FontSize="32"
+            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+            Glyph="&#xE783;" />
         <TextBlock
             HorizontalAlignment="Center"
-            FontSize="14"
-            Foreground="{ThemeResource TextPrimaryBrush}"
+            Style="{StaticResource BodyTextBlockStyle}"
             Text="{x:Bind Feed.ErrorMessage, Mode=OneWay}"
-            TextAlignment="Center"
-            TextWrapping="Wrap" />
+            TextAlignment="Center" />
         <Button
             HorizontalAlignment="Center"
+            AutomationProperties.Name="{x:Bind local:Ui.Text('State_Retry')}"
             Command="{x:Bind Feed.LoadCommand}"
-            Content="{x:Bind local:Ui.Text('State_Retry')}"
-            Style="{StaticResource SecondaryButtonStyle}" />
+            Style="{StaticResource SecondaryButtonStyle}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <FontIcon FontSize="14" Glyph="&#xE72C;" />
+            <TextBlock Text="{x:Bind local:Ui.Text('State_Retry')}" />
+          </StackPanel>
+        </Button>
       </StackPanel>
 
-      <!-- Floating refresh, 14 px from the bottom-left corner. -->
+      <!-- Floating refresh, 12 px from the bottom-left corner. -->
       <Button
-          Margin="14"
+          Margin="12,12,12,14"
           HorizontalAlignment="Left"
           VerticalAlignment="Bottom"
           AutomationProperties.Name="{x:Bind local:Ui.Text('Feed_Refresh')}"

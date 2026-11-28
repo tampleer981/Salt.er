@@ -1,7 +1,6 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Numerics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
@@ -12,23 +11,24 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Salter.Core.Wallhaven;
 using Salter.Presentation.Layout;
 using Salter.Presentation.ViewModels;
-using Windows.Foundation;
 using Windows.System;
 using Windows.UI;
 
 namespace Salter.App.Views;
 
 /// <summary>
-/// The feed screen: wordmark, search, filters, genres, sort tabs and the wallpaper list, which loads further pages as
-/// it nears its end.
+/// The feed screen: header, search, filters, genres, sort tabs and the wallpaper cards, which load further pages as
+/// the list nears its end.
 /// </summary>
 public sealed partial class FeedView : UserControl
 {
-    // How much a thumbnail grows under the pointer.
-    private const float HoverScale = 1.02f;
+    private static readonly TimeSpan OverlayFadeDuration = TimeSpan.FromMilliseconds(150);
+    private static readonly TimeSpan ImageFadeDuration = TimeSpan.FromMilliseconds(200);
 
     private readonly Storyboard _shimmer;
     private readonly ChoiceInput _choices = new();
+    private readonly Dictionary<SelectorBarItem, ChoiceItem<Sorting>> _sortItems = [];
+    private bool _showingSorting;
 
     /// <summary>Creates the feed screen.</summary>
     /// <param name="shell">The shell; the screen shows its feed and opens its settings.</param>
@@ -44,6 +44,7 @@ public sealed partial class FeedView : UserControl
         Feed.PropertyChanged += OnFeedPropertyChanged;
         Feed.ExcludedTags.CollectionChanged += OnExcludedTagsChanged;
         UpdateExclusionChips();
+        CreateSortItems();
         Loaded += (_, _) => UpdateShimmer();
         Unloaded += (_, _) => _shimmer.Stop();
     }
@@ -83,46 +84,51 @@ public sealed partial class FeedView : UserControl
 
     private static Visibility VisibleIf(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
 
-    private static (Image? Image, UIElement? Overlay) ThumbnailParts(object element) =>
-        element is Button { Content: Grid grid } && grid.Children.Count == 2
-            ? (grid.Children[0] as Image, grid.Children[1])
+    // The card's image layer (a border whose ImageBrush the rounded corners clip) and its hover overlay.
+    private static (Border? Image, UIElement? Overlay) ThumbnailParts(object element) =>
+        element is Button { Content: Grid grid } && grid.Children.Count >= 2
+            ? (grid.Children[0] as Border, grid.Children[1])
             : (null, null);
 
     private static void SetOverlay(object thumbnail, bool visible)
     {
-        var (image, overlay) = ThumbnailParts(thumbnail);
+        var (_, overlay) = ThumbnailParts(thumbnail);
         if (overlay is not null)
         {
-            Motion.SetOpacity(overlay, visible ? 1 : 0, animate: true);
+            Motion.Fade(overlay, visible ? 1 : 0, OverlayFadeDuration);
             // A hidden Set button must not take clicks meant for the thumbnail.
             overlay.IsHitTestVisible = visible;
         }
-
-        if (image is not null)
-        {
-            // No growth at all while animations are off, rather than a sudden jump.
-            Motion.SetScale(image, visible && Motion.Enabled ? HoverScale : 1, animate: true);
-        }
     }
 
-    private static void ResetThumbnail(Image? image, UIElement? overlay, bool keepImage)
+    private static void ResetThumbnail(Border? image, UIElement? overlay, bool keepImage)
     {
         // At once, without transitions, so a recycled element does not fade out the state of its previous item.
         if (overlay is not null)
         {
-            Motion.SetOpacity(overlay, 0, animate: false);
+            Motion.SetOpacity(overlay, 0);
             overlay.IsHitTestVisible = false;
         }
 
-        if (image is not null)
+        if (image is not null && !keepImage)
         {
-            Motion.SetScale(image, 1, animate: false);
-            if (!keepImage)
-            {
-                // Shown again by ImageOpened once the new image is decoded.
-                Motion.SetOpacity(image, 0, animate: false);
-            }
+            // Shown again by ImageOpened once the new image is decoded.
+            Motion.SetOpacity(image, 0);
         }
+    }
+
+    private static ImageBrush ImageBrushOf(Border image)
+    {
+        if (image.Background is ImageBrush brush)
+        {
+            return brush;
+        }
+
+        // One brush per card for its lifetime: recycled cards only swap its source.
+        brush = new ImageBrush { Stretch = Stretch.UniformToFill };
+        brush.ImageOpened += (_, _) => Motion.Fade(image, 1, ImageFadeDuration);
+        image.Background = brush;
+        return brush;
     }
 
     private static Color ParseColor(string hex)
@@ -222,10 +228,6 @@ public sealed partial class FeedView : UserControl
 
     private void OnGenreClick(object sender, RoutedEventArgs e) => _choices.Clicked(sender, Feed.SelectGenreCommand);
 
-    private void OnSortingChecked(object sender, RoutedEventArgs e) => _choices.Checked(sender, SelectSorting);
-
-    private void OnSortingClick(object sender, RoutedEventArgs e) => _choices.Clicked(sender, SelectSorting);
-
     private void OnRatioChecked(object sender, RoutedEventArgs e) => _choices.Checked(sender, Feed.SelectRatioCommand);
 
     private void OnRatioClick(object sender, RoutedEventArgs e) => _choices.Clicked(sender, Feed.SelectRatioCommand);
@@ -241,11 +243,53 @@ public sealed partial class FeedView : UserControl
 
     private void OnColorClick(object sender, RoutedEventArgs e) => _choices.Clicked(sender, Feed.SelectColorCommand);
 
-    private void SelectSorting(ChoiceItem sorting)
+    private void CreateSortItems()
     {
-        if (sorting is ChoiceItem<Sorting> choice)
+        foreach (var sorting in Feed.Sortings)
         {
-            Feed.SelectSortingCommand.Execute(choice.Value);
+            var item = new SelectorBarItem { Text = sorting.Label };
+            AutomationProperties.SetName(item, sorting.Label);
+            _sortItems.Add(item, sorting);
+            SortBar.Items.Add(item);
+            sorting.PropertyChanged += OnSortingPropertyChanged;
+        }
+
+        ShowSorting();
+    }
+
+    private void OnSortingPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ChoiceItem.IsSelected))
+        {
+            ShowSorting();
+        }
+    }
+
+    // The selector bar shows the view model's sorting; a change made here does not run the command again.
+    private void ShowSorting()
+    {
+        var selected = _sortItems.FirstOrDefault(pair => pair.Value.IsSelected).Key;
+        if (selected is null || ReferenceEquals(SortBar.SelectedItem, selected))
+        {
+            return;
+        }
+
+        _showingSorting = true;
+        try
+        {
+            SortBar.SelectedItem = selected;
+        }
+        finally
+        {
+            _showingSorting = false;
+        }
+    }
+
+    private void OnSortSelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        if (!_showingSorting && sender.SelectedItem is { } item && _sortItems.TryGetValue(item, out var sorting))
+        {
+            Feed.SelectSortingCommand.Execute(sorting.Value);
         }
     }
 
@@ -261,40 +305,18 @@ public sealed partial class FeedView : UserControl
     private void OnThumbnailPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
     {
         var (image, overlay) = ThumbnailParts(args.Element);
-        var keepImage = false;
-        if (image is not null && sender.ItemsSourceView.GetAt(args.Index) is WallpaperSummary wallpaper)
-        {
-            // An element prepared again for the image it still shows keeps it, instead of downloading and decoding
-            // it once more.
-            keepImage = image.Source is BitmapImage current && current.UriSource == wallpaper.ThumbnailUrl;
-            if (!keepImage)
-            {
-                image.Source = Ui.Thumbnail(wallpaper.ThumbnailUrl, XamlRoot);
-            }
-        }
+        var wallpaper = sender.ItemsSourceView.GetAt(args.Index) as WallpaperSummary;
+        var brush = image is null ? null : ImageBrushOf(image);
+        // An element prepared again for the image it still shows keeps it, instead of downloading and decoding it
+        // once more.
+        var keepImage = brush?.ImageSource is BitmapImage current && current.UriSource == wallpaper?.ThumbnailUrl;
 
-        // Elements are recycled; a reused one must not keep the hover state or image of its previous item.
+        // Elements are recycled; a reused one must not keep the hover state or image of its previous item. Reset
+        // before the new image is set, so its ImageOpened always fades it in.
         ResetThumbnail(image, overlay, keepImage);
-    }
-
-    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML connects event handlers to the instance.")]
-    private void OnThumbnailImageOpened(object sender, RoutedEventArgs e)
-    {
-        if (sender is Image image)
+        if (brush is not null && wallpaper is not null && !keepImage)
         {
-            Motion.SetOpacity(image, 1, animate: true);
-        }
-    }
-
-    [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "XAML connects event handlers to the instance.")]
-    private void OnThumbnailSizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        // The image grows on hover around its centre; the cell clips it so it never covers its neighbours.
-        if (sender is Grid { Children: [Image image, ..] } cell)
-        {
-            var size = e.NewSize;
-            cell.Clip = new RectangleGeometry { Rect = new Rect(0, 0, size.Width, size.Height) };
-            image.CenterPoint = new Vector3((float)(size.Width / 2), (float)(size.Height / 2), 0);
+            brush.ImageSource = Ui.Thumbnail(wallpaper.ThumbnailUrl, XamlRoot);
         }
     }
 
@@ -302,7 +324,10 @@ public sealed partial class FeedView : UserControl
     private void OnThumbnailClearing(ItemsRepeater sender, ItemsRepeaterElementClearingEventArgs args)
     {
         // Releases the decoded image of an element scrolled out of view.
-        ThumbnailParts(args.Element).Image?.Source = null;
+        if (ThumbnailParts(args.Element).Image is { Background: ImageBrush brush })
+        {
+            brush.ImageSource = null;
+        }
     }
 
     // The Tag holds the wallpaper: ItemsRepeater does not set the data context of x:Bind templates.

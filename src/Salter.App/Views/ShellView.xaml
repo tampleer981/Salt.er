@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The flyout's content: the glass surface (fill over the window's acrylic, sheen, top highlight and hairline border,
-  rounded 8 px like the Windows 11 window itself, so no plain acrylic shows in the corners), the screen being shown and
-  the toast above every screen.
+  The flyout's content: a very light layer over the window's desktop acrylic with a 1 px surface stroke, rounded
+  8 px like the Windows 11 window itself (so no plain acrylic shows in the corners), the screen being shown and the
+  toast above every screen.
 -->
 <UserControl
     x:Class="Salter.App.Views.ShellView"
@@ -13,58 +13,55 @@
   <Border
       x:Name="Glass"
       Background="{ThemeResource GlassFillBrush}"
-      BorderBrush="{ThemeResource GlassBorderBrush}"
+      BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
       BorderThickness="1"
       CornerRadius="8">
     <Grid>
-      <Border Background="{ThemeResource GlassSheenBrush}" CornerRadius="7" IsHitTestVisible="False" />
-      <Rectangle
-          Height="1"
-          Margin="14,0"
-          VerticalAlignment="Top"
-          Fill="{ThemeResource GlassHighlightBrush}"
-          IsHitTestVisible="False" />
-
       <!-- The feed, detail and settings screens; code-behind shows one at a time. -->
       <Grid x:Name="Pages" />
 
-      <!-- Toast: 32 px pill along the bottom, clear of the refresh button on the left. -->
+      <!--
+        Toast: an InfoBar-like pill along the bottom, clear of the refresh button on the left. Code-behind fades it
+        (Motion), so no transition is declared here.
+      -->
       <Border
           x:Name="Toast"
-          Height="32"
-          Margin="64,0,14,18"
-          Padding="12,0"
+          MinHeight="36"
+          Margin="64,0,12,16"
+          Padding="12,6,14,6"
           VerticalAlignment="Bottom"
-          Background="{ThemeResource FloatingGlassBrush}"
-          BorderBrush="{ThemeResource FloatingBorderBrush}"
+          Background="{ThemeResource FloatingFillBrush}"
+          BorderBrush="{ThemeResource SurfaceStrokeColorFlyoutBrush}"
           BorderThickness="1"
-          CornerRadius="16"
+          CornerRadius="{StaticResource CardCornerRadius}"
           IsHitTestVisible="False"
-          Opacity="{x:Bind local:ShellView.ToastOpacity(Shell.Toast.IsVisible), Mode=OneWay}">
-        <Border.OpacityTransition>
-          <ScalarTransition Duration="0:0:0.18" />
-        </Border.OpacityTransition>
-        <StackPanel VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
+          Opacity="0">
+        <Grid ColumnSpacing="10">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
           <FontIcon
-              FontSize="12"
-              Foreground="{ThemeResource SuccessBrush}"
-              Glyph="&#xE73E;"
+              VerticalAlignment="Center"
+              FontSize="14"
+              Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+              Glyph="&#xEC61;"
               Visibility="{x:Bind local:ShellView.SuccessVisibility(Shell.Toast.Kind), Mode=OneWay}" />
           <FontIcon
-              FontSize="12"
-              Foreground="{ThemeResource ErrorBrush}"
-              Glyph="&#xE783;"
+              VerticalAlignment="Center"
+              FontSize="14"
+              Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+              Glyph="&#xEB90;"
               Visibility="{x:Bind local:ShellView.ErrorVisibility(Shell.Toast.Kind), Mode=OneWay}" />
           <TextBlock
               x:Name="ToastText"
+              Grid.Column="1"
               VerticalAlignment="Center"
               AutomationProperties.LiveSetting="Polite"
-              FontSize="12"
-              FontWeight="Medium"
-              Foreground="{ThemeResource FloatingTextBrush}"
+              Style="{StaticResource BodyLineTextStyle}"
               Text="{x:Bind Shell.Toast.Message, Mode=OneWay}"
               TextTrimming="CharacterEllipsis" />
-        </StackPanel>
+        </Grid>
       </Border>
     </Grid>
   </Border>

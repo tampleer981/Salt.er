@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Windows 11 Settings look: group headers, then cards; each card has an icon, a title and a description on the left
+  and its control on the right (or below, when it needs the width).
+-->
 <UserControl
     x:Class="Salter.App.Views.SettingsView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -6,20 +10,19 @@
     xmlns:local="using:Salter.App.Views">
 
   <UserControl.Resources>
-    <Style x:Key="SectionTextStyle" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextStyle}">
-      <Setter Property="Margin" Value="4,18,0,8" />
+    <Style x:Key="SettingsCardStyle" TargetType="Border" BasedOn="{StaticResource CardStyle}">
+      <Setter Property="Padding" Value="14,12" />
+      <Setter Property="Margin" Value="0,0,0,4" />
     </Style>
-    <Style x:Key="CardStyle" TargetType="Border">
-      <Setter Property="Padding" Value="12" />
-      <Setter Property="Background" Value="{ThemeResource FieldBrush}" />
-      <Setter Property="BorderBrush" Value="{ThemeResource GlassBorderBrush}" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="12" />
+    <Style x:Key="CardIconStyle" TargetType="FontIcon">
+      <Setter Property="Width" Value="20" />
+      <Setter Property="Margin" Value="0,2,0,0" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
     </Style>
-    <Style x:Key="LabelTextStyle" TargetType="TextBlock">
-      <Setter Property="FontSize" Value="13" />
-      <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-      <Setter Property="VerticalAlignment" Value="Center" />
+    <Style x:Key="CardTitleTextStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyTextBlockStyle}">
+      <Setter Property="TextWrapping" Value="NoWrap" />
     </Style>
   </UserControl.Resources>
 
@@ -29,128 +32,208 @@
       <RowDefinition Height="*" />
     </Grid.RowDefinitions>
 
-    <!-- Header: back and title. -->
-    <StackPanel Grid.Row="0" Padding="14,14,14,4" Orientation="Horizontal" Spacing="6">
+    <!-- Header, like a title bar: back and title; a hairline below. -->
+    <Grid Grid.Row="0" Height="48" Padding="8,0" ColumnSpacing="8">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
       <Button
           x:Name="BackButton"
           AutomationProperties.Name="{x:Bind local:Ui.Text('Detail_Back')}"
           Command="{x:Bind Shell.BackCommand}"
-          Style="{StaticResource IconButtonStyle}"
+          Style="{StaticResource TitleBarButtonStyle}"
           ToolTipService.ToolTip="{x:Bind local:Ui.Text('Detail_Back')}">
         <FontIcon FontSize="16" Glyph="&#xE72B;" />
       </Button>
       <TextBlock
-          VerticalAlignment="Center"
+          Grid.Column="1"
           AutomationProperties.HeadingLevel="Level1"
-          FontSize="20"
-          FontWeight="SemiBold"
-          Foreground="{ThemeResource TextPrimaryBrush}"
+          Style="{StaticResource PageTitleTextStyle}"
           Text="{x:Bind local:Ui.Text('Settings_Title')}" />
-    </StackPanel>
+      <Rectangle Grid.ColumnSpan="2" Margin="-8,0" VerticalAlignment="Bottom" Style="{StaticResource DividerStyle}" />
+    </Grid>
 
     <ScrollViewer Grid.Row="1" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto">
       <!-- The bottom padding keeps the last line clear of the toast. -->
-      <StackPanel Padding="14,0,14,64">
+      <StackPanel Padding="12,0,12,64">
+
+        <!-- wallhaven: API key and content purity. -->
+        <TextBlock
+            AutomationProperties.HeadingLevel="Level2"
+            Style="{StaticResource SectionHeaderTextStyle}"
+            Text="{x:Bind local:Ui.Text('Settings_SectionAccount')}" />
 
         <!-- API key: stored only when saved. -->
-        <TextBlock Style="{StaticResource SectionTextStyle}" Text="{x:Bind local:Ui.Text('Settings_ApiKey')}" />
-        <Border Style="{StaticResource CardStyle}">
-          <StackPanel Spacing="10">
+        <Border Style="{StaticResource SettingsCardStyle}">
+          <Grid ColumnSpacing="14" RowSpacing="10">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <FontIcon Glyph="&#xE8D7;" Style="{StaticResource CardIconStyle}" />
+            <StackPanel Grid.Column="1" Spacing="2">
+              <TextBlock Style="{StaticResource CardTitleTextStyle}" Text="{x:Bind local:Ui.Text('Settings_ApiKey')}" />
+              <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind local:Ui.Text('Settings_ApiKeyHint')}" />
+              <HyperlinkButton
+                  Padding="0,2"
+                  Content="{x:Bind local:Ui.Text('Settings_ApiKeyGet')}"
+                  FontSize="12"
+                  NavigateUri="https://wallhaven.cc/settings/account" />
+            </StackPanel>
             <PasswordBox
                 x:Name="ApiKeyBox"
+                Grid.Row="1"
+                Grid.Column="1"
                 AutomationProperties.Name="{x:Bind local:Ui.Text('Settings_ApiKey')}"
                 KeyDown="OnApiKeyKeyDown"
                 PasswordChanged="OnApiKeyChanged"
                 PlaceholderText="{x:Bind local:Ui.Text('Settings_ApiKeyPlaceholder')}" />
-            <StackPanel Orientation="Horizontal" Spacing="6">
+            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="6">
               <Button
+                  AutomationProperties.Name="{x:Bind local:Ui.Text('Settings_ApiKeyApply')}"
                   Command="{x:Bind Settings.ApplyApiKeyCommand}"
-                  Content="{x:Bind local:Ui.Text('Settings_ApiKeyApply')}"
-                  Style="{StaticResource SecondaryButtonStyle}" />
+                  Style="{StaticResource SecondaryButtonStyle}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <FontIcon FontSize="14" Glyph="&#xE74E;" />
+                  <TextBlock Text="{x:Bind local:Ui.Text('Settings_ApiKeyApply')}" />
+                </StackPanel>
+              </Button>
               <Button
+                  AutomationProperties.Name="{x:Bind local:Ui.Text('Settings_ApiKeyClear')}"
                   Command="{x:Bind Settings.ClearApiKeyCommand}"
-                  Content="{x:Bind local:Ui.Text('Settings_ApiKeyClear')}"
-                  Style="{StaticResource SecondaryButtonStyle}" />
+                  Style="{StaticResource SecondaryButtonStyle}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <FontIcon FontSize="14" Glyph="&#xE74D;" />
+                  <TextBlock Text="{x:Bind local:Ui.Text('Settings_ApiKeyClear')}" />
+                </StackPanel>
+              </Button>
             </StackPanel>
-            <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind local:Ui.Text('Settings_ApiKeyHint')}" />
-            <HyperlinkButton
-                Padding="0"
-                Content="{x:Bind local:Ui.Text('Settings_ApiKeyGet')}"
-                FontSize="12"
-                NavigateUri="https://wallhaven.cc/settings/account" />
-          </StackPanel>
-        </Border>
-
-        <!-- Content purity: SFW always; the others need an API key. -->
-        <TextBlock Style="{StaticResource SectionTextStyle}" Text="{x:Bind local:Ui.Text('Settings_Content')}" />
-        <Border Style="{StaticResource CardStyle}">
-          <StackPanel Spacing="2">
-            <CheckBox Content="{x:Bind local:Ui.Text('Settings_Sfw')}" IsChecked="True" IsEnabled="False" />
-            <CheckBox
-                Content="{x:Bind local:Ui.Text('Settings_Sketchy')}"
-                IsChecked="{x:Bind Settings.AllowSketchy, Mode=TwoWay}"
-                IsEnabled="{x:Bind Settings.CanChangePurity, Mode=OneWay}" />
-            <CheckBox
-                Content="{x:Bind local:Ui.Text('Settings_Nsfw')}"
-                IsChecked="{x:Bind Settings.AllowNsfw, Mode=TwoWay}"
-                IsEnabled="{x:Bind Settings.CanChangePurity, Mode=OneWay}" />
-            <TextBlock
-                Margin="0,6,0,0"
-                Style="{StaticResource CaptionTextStyle}"
-                Text="{x:Bind local:Ui.Text('Settings_ContentHint')}"
-                Visibility="{x:Bind local:Ui.VisibleUnless(Settings.CanChangePurity), Mode=OneWay}" />
-          </StackPanel>
-        </Border>
-
-        <!-- Download folder. -->
-        <TextBlock Style="{StaticResource SectionTextStyle}" Text="{x:Bind local:Ui.Text('Settings_Folder')}" />
-        <Border Style="{StaticResource CardStyle}">
-          <Grid ColumnSpacing="10">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*" />
-              <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBlock
-                Grid.Column="0"
-                Style="{StaticResource LabelTextStyle}"
-                Text="{x:Bind Settings.DownloadFolder, Mode=OneWay}"
-                TextTrimming="CharacterEllipsis"
-                ToolTipService.ToolTip="{x:Bind Settings.DownloadFolder, Mode=OneWay}" />
-            <Button
-                Grid.Column="1"
-                Command="{x:Bind Settings.ChangeFolderCommand}"
-                Content="{x:Bind local:Ui.Text('Settings_FolderChange')}"
-                Style="{StaticResource SecondaryButtonStyle}" />
           </Grid>
         </Border>
 
-        <!-- Start at sign-in and theme. -->
-        <TextBlock Style="{StaticResource SectionTextStyle}" Text="{x:Bind local:Ui.Text('Settings_General')}" />
-        <Border Style="{StaticResource CardStyle}">
-          <StackPanel Spacing="12">
-            <Grid ColumnSpacing="10">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Style="{StaticResource LabelTextStyle}" Text="{x:Bind local:Ui.Text('Settings_LaunchAtStartup')}" />
-              <ToggleSwitch
-                  Grid.Column="1"
+        <!-- Content purity: SFW always; the others need an API key. -->
+        <Border Style="{StaticResource SettingsCardStyle}">
+          <Grid ColumnSpacing="14" RowSpacing="6">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <FontIcon Glyph="&#xEA18;" Style="{StaticResource CardIconStyle}" />
+            <StackPanel Grid.Column="1" Spacing="2">
+              <TextBlock Style="{StaticResource CardTitleTextStyle}" Text="{x:Bind local:Ui.Text('Settings_Content')}" />
+              <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind local:Ui.Text('Settings_ContentDescription')}" />
+              <TextBlock
+                  Style="{StaticResource CaptionTextStyle}"
+                  Text="{x:Bind local:Ui.Text('Settings_ContentHint')}"
+                  Visibility="{x:Bind local:Ui.VisibleUnless(Settings.CanChangePurity), Mode=OneWay}" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="4">
+              <CheckBox MinWidth="0" Content="{x:Bind local:Ui.Text('Settings_Sfw')}" IsChecked="True" IsEnabled="False" />
+              <CheckBox
                   MinWidth="0"
-                  AutomationProperties.Name="{x:Bind local:Ui.Text('Settings_LaunchAtStartup')}"
-                  IsOn="{x:Bind Settings.LaunchAtStartup, Mode=TwoWay}"
-                  OffContent=""
-                  OnContent="" />
-            </Grid>
-            <StackPanel Spacing="8">
-              <TextBlock Style="{StaticResource LabelTextStyle}" Text="{x:Bind local:Ui.Text('Settings_Theme')}" />
-              <Grid
-                  Padding="3"
-                  Background="{ThemeResource FieldBrush}"
-                  BorderBrush="{ThemeResource GlassBorderBrush}"
-                  BorderThickness="1"
-                  ColumnSpacing="4"
-                  CornerRadius="12">
+                  Content="{x:Bind local:Ui.Text('Settings_Sketchy')}"
+                  IsChecked="{x:Bind Settings.AllowSketchy, Mode=TwoWay}"
+                  IsEnabled="{x:Bind Settings.CanChangePurity, Mode=OneWay}" />
+              <CheckBox
+                  MinWidth="0"
+                  Content="{x:Bind local:Ui.Text('Settings_Nsfw')}"
+                  IsChecked="{x:Bind Settings.AllowNsfw, Mode=TwoWay}"
+                  IsEnabled="{x:Bind Settings.CanChangePurity, Mode=OneWay}" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <!-- Downloads. -->
+        <TextBlock
+            AutomationProperties.HeadingLevel="Level2"
+            Style="{StaticResource SectionHeaderTextStyle}"
+            Text="{x:Bind local:Ui.Text('Settings_SectionDownloads')}" />
+        <Border Style="{StaticResource SettingsCardStyle}">
+          <Grid ColumnSpacing="14">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <FontIcon Glyph="&#xE8B7;" Style="{StaticResource CardIconStyle}" />
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+              <TextBlock Style="{StaticResource CardTitleTextStyle}" Text="{x:Bind local:Ui.Text('Settings_Folder')}" />
+              <TextBlock
+                  Style="{StaticResource CaptionTextStyle}"
+                  Text="{x:Bind Settings.DownloadFolder, Mode=OneWay}"
+                  TextTrimming="CharacterEllipsis"
+                  TextWrapping="NoWrap"
+                  ToolTipService.ToolTip="{x:Bind Settings.DownloadFolder, Mode=OneWay}" />
+            </StackPanel>
+            <Button
+                Grid.Column="2"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="{x:Bind local:Ui.Text('Settings_FolderChange')}"
+                Command="{x:Bind Settings.ChangeFolderCommand}"
+                Style="{StaticResource SecondaryButtonStyle}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <FontIcon FontSize="14" Glyph="&#xE838;" />
+                <TextBlock Text="{x:Bind local:Ui.Text('Settings_FolderChange')}" />
+              </StackPanel>
+            </Button>
+          </Grid>
+        </Border>
+
+        <!-- General: start at sign-in and theme. -->
+        <TextBlock
+            AutomationProperties.HeadingLevel="Level2"
+            Style="{StaticResource SectionHeaderTextStyle}"
+            Text="{x:Bind local:Ui.Text('Settings_General')}" />
+        <Border Style="{StaticResource SettingsCardStyle}">
+          <Grid ColumnSpacing="14">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <FontIcon Glyph="&#xE7E8;" Style="{StaticResource CardIconStyle}" />
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+              <TextBlock Style="{StaticResource CardTitleTextStyle}" Text="{x:Bind local:Ui.Text('Settings_LaunchAtStartup')}" />
+              <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind local:Ui.Text('Settings_LaunchAtStartupDescription')}" />
+            </StackPanel>
+            <ToggleSwitch
+                Grid.Column="2"
+                MinWidth="0"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="{x:Bind local:Ui.Text('Settings_LaunchAtStartup')}"
+                IsOn="{x:Bind Settings.LaunchAtStartup, Mode=TwoWay}"
+                OffContent=""
+                OnContent="" />
+          </Grid>
+        </Border>
+        <Border Style="{StaticResource SettingsCardStyle}">
+          <Grid ColumnSpacing="14" RowSpacing="10">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <FontIcon Glyph="&#xE790;" Style="{StaticResource CardIconStyle}" />
+            <StackPanel Grid.Column="1" Spacing="2">
+              <TextBlock Style="{StaticResource CardTitleTextStyle}" Text="{x:Bind local:Ui.Text('Settings_Theme')}" />
+              <TextBlock Style="{StaticResource CaptionTextStyle}" Text="{x:Bind local:Ui.Text('Settings_ThemeDescription')}" />
+            </StackPanel>
+            <!-- A segmented control: system, light or dark. -->
+            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource SegmentedHostStyle}">
+              <Grid ColumnSpacing="2">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="*" />
                   <ColumnDefinition Width="*" />
@@ -178,28 +261,32 @@
                     GroupName="Theme"
                     Style="{StaticResource SegmentRadioStyle}" />
               </Grid>
-            </StackPanel>
-          </StackPanel>
+            </Border>
+          </Grid>
         </Border>
 
         <!-- About. -->
-        <StackPanel Margin="0,18,0,0" Orientation="Horizontal" Spacing="16">
-          <HyperlinkButton
-              Padding="4,2"
-              Content="{x:Bind local:Ui.Text('Settings_GitHub')}"
-              FontSize="12"
-              NavigateUri="https://github.com/tampleer981/salt.er" />
-          <HyperlinkButton
-              Padding="4,2"
-              Content="{x:Bind local:Ui.Text('Settings_License')}"
-              FontSize="12"
-              NavigateUri="https://github.com/tampleer981/salt.er/blob/main/LICENSE" />
-        </StackPanel>
         <TextBlock
-            Margin="4,6,0,0"
-            FontSize="11"
-            Foreground="{ThemeResource TextSecondaryBrush}"
-            Text="{x:Bind local:Ui.Text('Settings_Disclaimer')}" />
+            AutomationProperties.HeadingLevel="Level2"
+            Style="{StaticResource SectionHeaderTextStyle}"
+            Text="{x:Bind local:Ui.Text('Settings_SectionAbout')}" />
+        <Border Style="{StaticResource SettingsCardStyle}">
+          <StackPanel Spacing="4">
+            <StackPanel Margin="-6,0,0,0" Orientation="Horizontal" Spacing="4">
+              <HyperlinkButton
+                  Padding="6,4"
+                  Content="{x:Bind local:Ui.Text('Settings_GitHub')}"
+                  FontSize="12"
+                  NavigateUri="https://github.com/tampleer981/salt.er" />
+              <HyperlinkButton
+                  Padding="6,4"
+                  Content="{x:Bind local:Ui.Text('Settings_License')}"
+                  FontSize="12"
+                  NavigateUri="https://github.com/tampleer981/salt.er/blob/main/LICENSE" />
+            </StackPanel>
+            <TextBlock Style="{StaticResource TertiaryCaptionTextStyle}" Text="{x:Bind local:Ui.Text('Settings_Disclaimer')}" />
+          </StackPanel>
+        </Border>
       </StackPanel>
     </ScrollViewer>
   </Grid>

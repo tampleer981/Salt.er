@@ -410,4 +410,32 @@
     <value>Not affiliated with wallhaven.cc</value>
     <comment>Legal note at the bottom of the settings.</comment>
   </data>
+  <data name="Feed_Sort" xml:space="preserve">
+    <value>Sort order</value>
+    <comment>Accessible name of the row of sort tabs (Toplist, Latest, Hot, Random).</comment>
+  </data>
+  <data name="Settings_SectionAccount" xml:space="preserve">
+    <value>wallhaven</value>
+    <comment>Settings group header above the API key and content cards.</comment>
+  </data>
+  <data name="Settings_ContentDescription" xml:space="preserve">
+    <value>Which wallpapers the feed may show.</value>
+    <comment>Description of the content purity card in the settings.</comment>
+  </data>
+  <data name="Settings_SectionDownloads" xml:space="preserve">
+    <value>Downloads</value>
+    <comment>Settings group header above the download folder card.</comment>
+  </data>
+  <data name="Settings_LaunchAtStartupDescription" xml:space="preserve">
+    <value>Keep Salt.er in the tray after you sign in.</value>
+    <comment>Description of the start with Windows switch.</comment>
+  </data>
+  <data name="Settings_ThemeDescription" xml:space="preserve">
+    <value>Follow Windows, or always use light or dark.</value>
+    <comment>Description of the theme card in the settings.</comment>
+  </data>
+  <data name="Settings_SectionAbout" xml:space="preserve">
+    <value>About</value>
+    <comment>Settings group header above the project links.</comment>
+  </data>
 </root>

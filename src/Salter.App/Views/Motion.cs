@@ -9,6 +9,12 @@ namespace Salter.App.Views;
 /// Short, one-off animations built on implicit transitions, which the compositor runs off the UI thread and which
 /// cost nothing once finished. All of them are skipped while the Windows "Animation effects" setting is off.
 /// </summary>
+/// <remarks>
+/// This is the only place that sets implicit transitions, and only on elements of the app's own views (never on
+/// control template parts: in Windows App SDK 1.8 an animated Opacity or Scale on a template part crashes
+/// Microsoft.ui.xaml.dll while animation effects are on; see docs/design.md). Should the framework refuse a
+/// transition, the element takes its final value at once instead.
+/// </remarks>
 internal static class Motion
 {
     private static UISettings? _settings;
@@ -38,64 +44,83 @@ internal static class Motion
     {
         ArgumentNullException.ThrowIfNull(element);
 
-        element.OpacityTransition = null;
-        element.TranslationTransition = null;
-        if (!Enabled)
+        if (Enabled)
         {
-            element.Opacity = 1;
-            element.Translation = Vector3.Zero;
-            return;
+            try
+            {
+                // The start values are set without transitions; the end values then animate from them.
+                element.OpacityTransition = null;
+                element.TranslationTransition = null;
+                element.Opacity = 0;
+                element.Translation = new Vector3(0, offset, 0);
+                element.OpacityTransition = new ScalarTransition { Duration = duration };
+                element.TranslationTransition = new Vector3Transition
+                {
+                    Duration = duration,
+                    Components = Vector3TransitionComponents.Y,
+                };
+                element.Opacity = 1;
+                element.Translation = Vector3.Zero;
+                return;
+            }
+            catch (Exception ex) when (IsTransitionFailure(ex))
+            {
+                // Falls through to the final state without animation.
+            }
         }
 
-        // The start values are set without transitions; the end values then animate from them.
-        element.Opacity = 0;
-        element.Translation = new Vector3(0, offset, 0);
-        element.OpacityTransition = new ScalarTransition { Duration = duration };
-        element.TranslationTransition = new Vector3Transition
+        ShowAtOnce(element);
+    }
+
+    /// <summary>Fades an element to an opacity, or sets it at once while animations are off.</summary>
+    /// <param name="element">The element; its opacity transition is replaced.</param>
+    /// <param name="opacity">The new opacity.</param>
+    /// <param name="duration">How long the fade takes.</param>
+    public static void Fade(UIElement element, double opacity, TimeSpan duration)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+
+        if (Enabled)
         {
-            Duration = duration,
-            Components = Vector3TransitionComponents.Y,
-        };
+            try
+            {
+                // Reused while its duration matches, so repeated hovers allocate nothing.
+                if (element.OpacityTransition is not { } transition || transition.Duration != duration)
+                {
+                    element.OpacityTransition = new ScalarTransition { Duration = duration };
+                }
+
+                element.Opacity = opacity;
+                return;
+            }
+            catch (Exception ex) when (IsTransitionFailure(ex))
+            {
+                // Falls through to setting the value without animation.
+            }
+        }
+
+        SetOpacity(element, opacity);
+    }
+
+    /// <summary>Sets an element's opacity at once, without animation, for example when a recycled element is reset.</summary>
+    /// <param name="element">The element; its opacity transition is removed.</param>
+    /// <param name="opacity">The new opacity.</param>
+    public static void SetOpacity(UIElement element, double opacity)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+
+        element.OpacityTransition = null;
+        element.Opacity = opacity;
+    }
+
+    private static void ShowAtOnce(UIElement element)
+    {
+        element.OpacityTransition = null;
+        element.TranslationTransition = null;
         element.Opacity = 1;
         element.Translation = Vector3.Zero;
     }
 
-    /// <summary>Changes an element's opacity through its <see cref="UIElement.OpacityTransition"/>, if any.</summary>
-    /// <param name="element">The element.</param>
-    /// <param name="opacity">The new opacity.</param>
-    /// <param name="animate">
-    /// <see langword="false"/> to change it at once, for example when a recycled element is reset; animations are
-    /// also skipped while they are turned off in Windows.
-    /// </param>
-    public static void SetOpacity(UIElement element, double opacity, bool animate)
-    {
-        ArgumentNullException.ThrowIfNull(element);
-
-        var transition = element.OpacityTransition;
-        if (!animate || !Enabled)
-        {
-            element.OpacityTransition = null;
-        }
-
-        element.Opacity = opacity;
-        element.OpacityTransition = transition;
-    }
-
-    /// <summary>Changes an element's uniform scale through its <see cref="UIElement.ScaleTransition"/>, if any.</summary>
-    /// <param name="element">The element; it scales around its <see cref="UIElement.CenterPoint"/>.</param>
-    /// <param name="scale">The new scale.</param>
-    /// <param name="animate"><see langword="false"/> to change it at once; see <see cref="SetOpacity"/>.</param>
-    public static void SetScale(UIElement element, float scale, bool animate)
-    {
-        ArgumentNullException.ThrowIfNull(element);
-
-        var transition = element.ScaleTransition;
-        if (!animate || !Enabled)
-        {
-            element.ScaleTransition = null;
-        }
-
-        element.Scale = new Vector3(scale, scale, 1);
-        element.ScaleTransition = transition;
-    }
+    private static bool IsTransitionFailure(Exception ex) =>
+        ex is COMException or InvalidOperationException or ArgumentException;
 }
